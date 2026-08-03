@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import { Sheet } from './Sheet'
+import { Sheet } from '@/components/Sheet'
 import { resolve, suggest, canonicalLabel } from '@/lib/resolver'
 import { sets as setsApi } from '@/api/db'
 import { display } from '@/lib/units'

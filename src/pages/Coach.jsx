@@ -1,0 +1,462 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarClock, Loader2, Network, Plus, Radar } from 'lucide-react'
+import {
+  flags as flagsApi,
+  goals as goalsApi,
+  plans as plansApi,
+  profile as profileApi,
+  readiness as readinessApi,
+  recommendations as recommendationsApi,
+  sessions,
+  sets as setsApi,
+  variants as variantsApi,
+} from '@/api/db'
+import { canonicalLabel } from '@/lib/resolver'
+import { display } from '@/lib/units'
+import { detectPlateau, detectProgramPattern, e1rm, matchedRirSeries } from '@/lib/coach'
+import { PlateauCard } from '@/components/coach/PlateauCard'
+import { GoalCard } from '@/components/coach/GoalCard'
+import { GoalSheet } from '@/components/coach/GoalSheet'
+
+const PROGRAM_ACTION =
+  'Take a deload week — same movements, 60% of your usual sets, top sets at RIR 4 — then re-test the lifts above before changing programming.'
+
+export default function Coach() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [unit, setUnit] = useState('lb')
+  const [variantList, setVariantList] = useState([])
+  const [recommendationsList, setRecommendationsList] = useState([])
+  const [openPlans, setOpenPlans] = useState([])
+  const [scanning, setScanning] = useState(false)
+  const [scanMsg, setScanMsg] = useState(null)
+  const [allSets, setAllSets] = useState([])
+  const [goalsList, setGoalsList] = useState([])
+  const [goalSheetOpen, setGoalSheetOpen] = useState(false)
+  const [goalSheetInitial, setGoalSheetInitial] = useState(null)
+  // guards against overlapping runs — StrictMode's double effect-invoke (and a fast
+  // double-tap of Scan) would otherwise race two passes against the same dedup snapshot
+  // and both sides could decide independently to create a recommendation
+  const runningRef = useRef(false)
+
+  const variantById = useMemo(() => {
+    const map = new Map()
+    variantList.forEach((v) => map.set(v.id, v))
+    return map
+  }, [variantList])
+
+  // Detection runs client-side, on load and on demand — there is no cron here. Each
+  // pass recomputes plateau/program signals from real sets and only writes a new
+  // coach_recommendations row when the dedup rule says this is a genuinely new episode
+  // (see the load-based re-surfacing rule below).
+  const runDetection = useCallback(async () => {
+    if (runningRef.current) return
+    runningRef.current = true
+    setScanning(true)
+    setScanMsg(null)
+    try {
+      const [sessionList, allSets, variantRows, readinessList, excludedFlags, allRecs, goalRows] = await Promise.all([
+        sessions.list(),
+        setsApi.all(),
+        variantsApi.list(),
+        readinessApi.list(),
+        flagsApi.byStatus('excluded'),
+        recommendationsApi.all(),
+        goalsApi.list(),
+      ])
+      setVariantList(variantRows)
+      setAllSets(allSets)
+
+      // write-on-read, same pattern as recommendation creation: the first time a
+      // goal's current e1RM clears its target, flip the row to 'achieved' so it stops
+      // being treated as in-progress
+      const updatedGoals = await Promise.all(
+        goalRows.map(async (g) => {
+          if (g.status !== 'active') return g
+          const variantSets = allSets
+            .filter((s) => s.variant_id === g.variant_id)
+            .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
+          const recent = variantSets.slice(-9)
+          const currentKg = recent.length ? Math.max(...recent.map((s) => e1rm(s.weight_kg, s.reps))) : 0
+          if (currentKg < g.target_kg) return g
+          const updated = await goalsApi.update(g.id, { status: 'achieved', achieved_at: new Date().toISOString() })
+          return { ...g, ...updated }
+        })
+      )
+      setGoalsList(updatedGoals)
+
+      const datesBySession = {}
+      sessionList.forEach((s) => {
+        datesBySession[s.id] = s.started_at
+      })
+      const excludedIds = new Set(excludedFlags.map((f) => f.session_id))
+
+      const usedVariantIds = new Set(allSets.map((s) => s.variant_id))
+      const perVariant = variantRows
+        .filter((v) => usedVariantIds.has(v.id))
+        .map((v) => {
+          const variantSets = allSets.filter((s) => s.variant_id === v.id)
+          const series = matchedRirSeries(variantSets, datesBySession, excludedIds)
+          return { variantId: v.id, name: canonicalLabel(v.base), series, variantSets, verdict: detectPlateau(series) }
+        })
+
+      for (const pv of perVariant) {
+        if (!pv.verdict.stalled) continue
+
+        const lastSet = pv.variantSets
+          .filter((s) => !excludedIds.has(s.session_id))
+          .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
+          .at(-1)
+        if (!lastSet) continue
+        const matchedLoadKg = lastSet.weight_kg
+
+        const latest = allRecs
+          .filter((r) => r.kind === 'plateau' && r.variant_id === pv.variantId)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+
+        let shouldCreate
+        if (!latest) shouldCreate = true
+        else if (latest.status === 'open') shouldCreate = false
+        else shouldCreate = latest.actions?.matchedLoadKg != null && matchedLoadKg > latest.actions.matchedLoadKg
+        if (!shouldCreate) continue
+
+        const body = `Load has not moved while RIR fell ${pv.verdict.drop} points. That is a fatigue plateau, not a strength ceiling — the same weight is simply costing more.`
+        const row = await recommendationsApi.create({
+          kind: 'plateau',
+          variant_id: pv.variantId,
+          title: pv.name,
+          body,
+          actions: { matchedLoadKg, drop: pv.verdict.drop, sessions: pv.series.length },
+          status: 'open',
+        })
+        allRecs.push(row)
+      }
+
+      const programPattern = detectProgramPattern(
+        perVariant.map(({ variantId, name, series }) => ({ variantId, name, series })),
+        readinessList
+      )
+
+      if (programPattern.detected) {
+        const stalledVariantIds = programPattern.stalled.map((s) => s.variantId).sort()
+        const latestProgram = allRecs
+          .filter((r) => r.kind === 'program')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+
+        let shouldCreateProgram
+        if (!latestProgram) shouldCreateProgram = true
+        else if (latestProgram.status === 'open') shouldCreateProgram = false
+        else {
+          const storedIds = (latestProgram.actions?.stalledVariantIds || []).slice().sort().join(',')
+          shouldCreateProgram = storedIds !== stalledVariantIds.join(',')
+        }
+
+        if (shouldCreateProgram) {
+          // the prototype asserted "while readiness fell" unconditionally — real detection
+          // only earns that clause when readinessTrend is actually negative
+          const readinessClause =
+            programPattern.readinessTrend != null && programPattern.readinessTrend < 0 ? ' while readiness fell' : ''
+          const title = `${programPattern.stalled.length} lifts stalled inside the same two-week window`
+          const body =
+            `Per-exercise diagnosis would file these as ${programPattern.stalled.length} unrelated plateaus. ` +
+            `They are not: effort climbed at matched load across different movement patterns${readinessClause}. ` +
+            `That points at recovery, not at any one lift.`
+          const row = await recommendationsApi.create({
+            kind: 'program',
+            variant_id: null,
+            title,
+            body,
+            actions: { stalledVariantIds, readinessTrend: programPattern.readinessTrend },
+            status: 'open',
+          })
+          allRecs.push(row)
+        }
+      }
+
+      const openPlanRows = await plansApi.list()
+      setOpenPlans(openPlanRows)
+      setRecommendationsList(allRecs.filter((r) => r.status === 'open'))
+
+      const stalledCount = perVariant.filter((pv) => pv.verdict.stalled).length
+      setScanMsg(
+        `Checked ${perVariant.length} variant${perVariant.length === 1 ? '' : 's'} across ${sessionList.length} session${sessionList.length === 1 ? '' : 's'} · ${stalledCount} stalled, ${programPattern.detected ? 1 : 0} program-level pattern${programPattern.detected ? '' : 's'}.`
+      )
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      runningRef.current = false
+      setScanning(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    profileApi.get().then((p) => alive && setUnit(p?.unit ?? 'lb'))
+    runDetection().finally(() => alive && setLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [runDetection])
+
+  const handleDismiss = async (rec) => {
+    try {
+      const updated = await recommendationsApi.update(rec.id, { status: 'dismissed' })
+      setRecommendationsList((list) => list.filter((r) => r.id !== updated.id))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleAccept = async (rec) => {
+    try {
+      const targetLoadKg = rec.actions.matchedLoadKg * 0.88
+      const plan = await plansApi.create({
+        variant_id: rec.variant_id,
+        target_load_kg: targetLoadKg,
+        note: 'Back-off set from a plateau: cap the top set, add volume at RIR 3.',
+      })
+      const updated = await recommendationsApi.update(rec.id, { status: 'accepted' })
+      setRecommendationsList((list) => list.filter((r) => r.id !== updated.id))
+      setOpenPlans((list) => [...list.filter((p) => p.variant_id !== plan.variant_id), plan])
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleUndoPlan = async (plan) => {
+    try {
+      await plansApi.remove(plan.id)
+      setOpenPlans((list) => list.filter((p) => p.id !== plan.id))
+      // recommendationsList only holds open recs — the one to reopen is 'accepted',
+      // so it has to be looked up fresh rather than found in local state
+      const allRecs = await recommendationsApi.all()
+      const rec = allRecs.find(
+        (r) => r.kind === 'plateau' && r.variant_id === plan.variant_id && r.status === 'accepted'
+      )
+      if (rec) {
+        const updated = await recommendationsApi.update(rec.id, { status: 'open' })
+        setRecommendationsList((list) => [...list, updated])
+      }
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleSaveGoal = async ({ variantId, targetKg, reps }) => {
+    const created = await goalsApi.create({ variant_id: variantId, target_kg: targetKg, target_reps: reps })
+    const variant = variantById.get(variantId)
+    setGoalsList((list) => [...list, { ...created, exercise_variants: variant }])
+  }
+
+  const handleArchiveGoal = async (goal) => {
+    try {
+      await goalsApi.update(goal.id, { status: 'archived' })
+      setGoalsList((list) => list.filter((g) => g.id !== goal.id))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleRemoveGoal = async (goal) => {
+    try {
+      await goalsApi.remove(goal.id)
+      setGoalsList((list) => list.filter((g) => g.id !== goal.id))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleNextGoal = (goal) => {
+    const variantSets = allSets
+      .filter((s) => s.variant_id === goal.variant_id)
+      .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
+    const recent = variantSets.slice(-9)
+    const currentKg = recent.length ? Math.max(...recent.map((s) => e1rm(s.weight_kg, s.reps))) : 0
+    const current = display(currentKg, unit)
+    setGoalSheetInitial({
+      variantId: goal.variant_id,
+      target: String(Math.round((current + 10) / 5) * 5),
+      reps: String(goal.target_reps),
+    })
+    setGoalSheetOpen(true)
+  }
+
+  const exercisesWithSets = useMemo(() => {
+    const used = new Set(allSets.map((s) => s.variant_id))
+    return variantList.filter((v) => used.has(v.id)).slice(0, 8)
+  }, [allSets, variantList])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-background text-muted-foreground">
+        Loading…
+      </div>
+    )
+  }
+
+  const plateauRecs = recommendationsList.filter((r) => r.kind === 'plateau')
+  const programRec = recommendationsList.find((r) => r.kind === 'program')
+
+  return (
+    <div className="min-h-full bg-background px-[18px] pt-[14px] pb-[76px] text-foreground">
+      {error && (
+        <div className="mb-3 rounded-[14px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="text-[22px] font-bold tracking-[-0.025em]">Coach</div>
+      <div className="mt-1 mb-[18px] text-[12.5px] leading-[1.45] text-muted-foreground">
+        Everything below is derived from sets you actually logged.
+      </div>
+
+      {programRec && (
+        <div className="mb-[22px] rounded-[20px] border border-[#F2B544]/[0.32] bg-[#F2B544]/[0.06] p-4">
+          <div className="mb-[9px] flex items-center gap-[7px]">
+            <Network className="h-[17px] w-[17px] text-[#F2B544]" />
+            <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#F2B544]">
+              Program-level pattern
+            </div>
+          </div>
+          <div className="mb-[7px] text-[15px] font-semibold tracking-[-0.01em]">{programRec.title}</div>
+          <div className="text-[13px] leading-[1.55] text-[#C7CCC6]">{programRec.body}</div>
+          <div className="my-[11px] flex flex-wrap gap-[6px]">
+            {(programRec.actions.stalledVariantIds || []).map((vid) => {
+              const v = variantById.get(vid)
+              return v ? (
+                <div key={vid} className="rounded-[7px] bg-[#1E2220] px-2 py-1 text-[11px] text-[#C7CCC6]">
+                  {canonicalLabel(v.base)}
+                </div>
+              ) : null
+            })}
+          </div>
+          <div className="rounded-[13px] border border-border bg-background p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Suggested
+            </div>
+            <div className="mt-1 text-[13px] font-medium leading-[1.5]">{PROGRAM_ACTION}</div>
+          </div>
+          <button
+            onClick={() => handleDismiss(programRec)}
+            className="mt-[13px] w-full rounded-[10px] border border-border py-[9px] text-center text-[12px] text-muted-foreground"
+          >
+            Not now
+          </button>
+        </div>
+      )}
+
+      <div className="mb-[10px] flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Plateau diagnoses
+        </div>
+        <button
+          onClick={runDetection}
+          disabled={scanning}
+          className="flex items-center gap-[5px] text-[11.5px] font-semibold text-primary disabled:opacity-60"
+        >
+          {scanning ? <Loader2 className="h-[15px] w-[15px] animate-spin" /> : <Radar className="h-[15px] w-[15px]" />}
+          {scanning ? 'Scanning…' : 'Scan'}
+        </button>
+      </div>
+      {scanMsg && (
+        <div className="mb-[10px] rounded-xl border border-border bg-card px-3 py-[10px] text-[12px] text-[#9AA39C]">
+          {scanMsg}
+        </div>
+      )}
+
+      <div className="mb-6 flex flex-col gap-[10px]">
+        {plateauRecs.length === 0 && (
+          <div className="rounded-2xl border border-border bg-card p-4 text-center text-[12.5px] text-muted-foreground">
+            No stalled lifts right now.
+          </div>
+        )}
+        {plateauRecs.map((rec) => (
+          <PlateauCard
+            key={rec.id}
+            rec={rec}
+            unit={unit}
+            onDismiss={() => handleDismiss(rec)}
+            onAccept={() => handleAccept(rec)}
+          />
+        ))}
+      </div>
+
+      {openPlans.length > 0 && (
+        <>
+          <div className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Applied to next session
+          </div>
+          <div className="mb-6 flex flex-col gap-2">
+            {openPlans.map((p) => {
+              const v = variantById.get(p.variant_id)
+              return (
+                <div
+                  key={p.id}
+                  className="flex items-start gap-[10px] rounded-2xl border border-[#A8C9A2]/[0.28] bg-[#A8C9A2]/[0.05] p-[13px]"
+                >
+                  <CalendarClock className="mt-[1px] h-[17px] w-[17px] shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-semibold">{v ? canonicalLabel(v.base) : 'Unknown exercise'}</div>
+                    <div className="mt-[3px] text-[11.5px] leading-[1.5] text-muted-foreground">
+                      Top set capped at {Math.round(display(p.target_load_kg, unit))} {unit}, back-off at RIR 3 —
+                      waiting on your next session with this lift.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleUndoPlan(p)}
+                    className="shrink-0 pt-[2px] pl-1 text-[11.5px] text-muted-foreground"
+                  >
+                    Undo
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="mb-[10px] flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Strength goals
+        </div>
+        <button
+          onClick={() => {
+            setGoalSheetInitial(null)
+            setGoalSheetOpen(true)
+          }}
+          className="flex items-center gap-1 text-[11.5px] font-semibold text-primary"
+        >
+          <Plus className="h-[14px] w-[14px]" />
+          Add
+        </button>
+      </div>
+      <div className="flex flex-col gap-[10px]">
+        {goalsList.length === 0 && (
+          <div className="rounded-2xl border border-border bg-card p-4 text-center text-[12.5px] text-muted-foreground">
+            No strength goals yet.
+          </div>
+        )}
+        {goalsList.map((goal) => (
+          <GoalCard
+            key={goal.id}
+            goal={goal}
+            sets={allSets.filter((s) => s.variant_id === goal.variant_id)}
+            unit={unit}
+            onArchive={() => handleArchiveGoal(goal)}
+            onRemove={() => handleRemoveGoal(goal)}
+            onNext={() => handleNextGoal(goal)}
+          />
+        ))}
+      </div>
+
+      <GoalSheet
+        open={goalSheetOpen}
+        onOpenChange={setGoalSheetOpen}
+        variants={exercisesWithSets}
+        unit={unit}
+        initial={goalSheetInitial}
+        onSave={handleSaveGoal}
+      />
+    </div>
+  )
+}

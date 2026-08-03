@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { profile as profileApi, sessions, sets as setsApi, variants as variantsApi } from '@/api/db'
+import {
+  flags as flagsApi,
+  profile as profileApi,
+  readiness as readinessApi,
+  sessions,
+  sets as setsApi,
+  variants as variantsApi,
+} from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
 import { display } from '@/lib/units'
 import { detectPlateau, matchedRirSeries, sessionVolumeKg } from '@/lib/coach'
 import { VolumeChart } from '@/components/progress/VolumeChart'
 import { RirChart } from '@/components/progress/RirChart'
+import { Sparkline } from '@/components/progress/Sparkline'
 
 const STABILITY_LABEL = { declining: 'Declining', volatile: 'Volatile', stable: 'Stable' }
 
@@ -15,17 +23,28 @@ export default function Progress() {
   const [sessionList, setSessionList] = useState([])
   const [allSets, setAllSets] = useState([])
   const [variantList, setVariantList] = useState([])
+  const [readinessList, setReadinessList] = useState([])
+  const [excludedSessionIds, setExcludedSessionIds] = useState(new Set())
   const [selectedVariantId, setSelectedVariantId] = useState(null)
 
   useEffect(() => {
     let alive = true
-    Promise.all([profileApi.get(), sessions.list(), setsApi.all(), variantsApi.list()])
-      .then(([p, sessionRows, setRows, variantRows]) => {
+    Promise.all([
+      profileApi.get(),
+      sessions.list(),
+      setsApi.all(),
+      variantsApi.list(),
+      readinessApi.list(),
+      flagsApi.byStatus('excluded'),
+    ])
+      .then(([p, sessionRows, setRows, variantRows, readinessRows, excludedFlags]) => {
         if (!alive) return
         setUnit(p?.unit ?? 'lb')
         setSessionList(sessionRows)
         setAllSets(setRows)
         setVariantList(variantRows)
+        setReadinessList(readinessRows)
+        setExcludedSessionIds(new Set(excludedFlags.map((f) => f.session_id)))
       })
       .catch((err) => alive && setError(err.message))
       .finally(() => alive && setLoading(false))
@@ -56,8 +75,8 @@ export default function Progress() {
   const matchedSeries = useMemo(() => {
     if (!selectedId) return []
     const setsForVariant = allSets.filter((s) => s.variant_id === selectedId)
-    return matchedRirSeries(setsForVariant, datesBySession, new Set())
-  }, [allSets, selectedId, datesBySession])
+    return matchedRirSeries(setsForVariant, datesBySession, excludedSessionIds)
+  }, [allSets, selectedId, datesBySession, excludedSessionIds])
 
   const plateau = matchedSeries.length >= 3 ? detectPlateau(matchedSeries) : null
   const declining = plateau?.stability === 'declining'
@@ -93,6 +112,9 @@ export default function Progress() {
       }))
   }, [allSets, datesBySession, unit])
 
+  const readinessScores = readinessList.map((r) => r.score).filter((s) => s != null)
+  const currentReadiness = readinessScores[readinessScores.length - 1] ?? null
+
   const selectedVariant = exercisesWithSets.find((v) => v.id === selectedId)
   const rirSub = selectedVariant
     ? `Actual RIR at your most-repeated load for ${canonicalLabel(selectedVariant.base)}. Lower means the same weight is costing more.`
@@ -126,6 +148,19 @@ export default function Progress() {
           </div>
         ))}
       </div>
+
+      {currentReadiness != null && (
+        <div className="mb-[14px] flex items-center justify-between rounded-2xl border border-border bg-card p-[13px]">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Readiness</div>
+            <div className="mt-1 font-mono text-[21px] font-medium tracking-[-0.03em]">
+              {currentReadiness}
+              <span className="ml-1 font-sans text-[11px] text-muted-foreground">/10</span>
+            </div>
+          </div>
+          <Sparkline values={readinessScores.slice(-12)} />
+        </div>
+      )}
 
       <div className="mb-[14px] rounded-[18px] border border-border bg-card p-[15px]">
         <div className="text-[13px] font-semibold">Volume per session</div>

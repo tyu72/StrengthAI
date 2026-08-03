@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { House, LineChart } from 'lucide-react'
+import { House, LineChart, Sparkles } from 'lucide-react'
 
 const ITEMS = [
   { to: '/', label: 'Train', Icon: House, match: (path) => path === '/' || path.startsWith('/workout') },
   { to: '/progress', label: 'Progress', Icon: LineChart, match: (path) => path.startsWith('/progress') },
+  { to: '/coach', label: 'Coach', Icon: Sparkles, match: (path) => path.startsWith('/coach') },
 ]
 
 /**
@@ -20,7 +21,7 @@ export function BottomNav() {
         className="w-full max-w-[440px] border-t border-accent bg-background/[0.86] backdrop-blur-[16px]"
         style={{ paddingBottom: 'var(--safe-bottom)' }}
       >
-        <div className="grid grid-cols-2">
+        <div className="grid grid-cols-3">
           {ITEMS.map(({ to, label, Icon, match }) => {
             const active = match(location.pathname)
             return (

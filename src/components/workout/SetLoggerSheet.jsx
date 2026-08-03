@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
-import { Sheet } from './Sheet'
+import { CalendarClock, Minus, Plus } from 'lucide-react'
+import { Sheet } from '@/components/Sheet'
 import { sets as setsApi } from '@/api/db'
 import { display, rirToRpe, step, toKg } from '@/lib/units'
 import { e1rm } from '@/lib/coach'
@@ -15,7 +15,7 @@ function numField(value, setValue, stepAmt, max, placeholder) {
   }
 }
 
-export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, unit, onSave }) {
+export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, unit, plan, onSave }) {
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [rir, setRir] = useState('')
@@ -42,11 +42,12 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
     }
   }, [open, variantId])
 
-  const weightPh = best ? display(best.weight_kg, unit) : 0
+  const weightPh = plan ? display(plan.target_load_kg, unit) : best ? display(best.weight_kg, unit) : 0
   const stepAmt = step(unit)
   const logRef = last
     ? `last ${display(last.weight_kg, unit)} ${unit} × ${last.reps} @ RIR ${last.rir}`
     : 'first time logging this'
+  const logPlan = plan ? `Coach plan: ${Math.round(weightPh)} ${unit} at RIR 3 — pre-filled below.` : null
 
   const repsField = numField(reps, setReps, 1, 100, best ? best.reps : '')
   const rirField = numField(rir, setRir, 0.5, 5, best ? best.rir : '')
@@ -72,6 +73,12 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
       <div className="px-[18px] pb-6">
         <div className="text-[16px] font-bold tracking-[-0.02em]">{variantName}</div>
         <div className="mt-1 font-mono text-[11.5px] text-muted-foreground">{logRef}</div>
+        {logPlan && (
+          <div className="mt-[7px] flex items-start gap-[6px] text-[11.5px] leading-[1.45] text-primary">
+            <CalendarClock className="mt-[1px] h-[14px] w-[14px] shrink-0" />
+            {logPlan}
+          </div>
+        )}
 
         <div className="mt-4 rounded-2xl border border-border bg-background px-[14px] py-3">
           <div className="flex items-center justify-between">

@@ -16,13 +16,18 @@ export function ExerciseBlock({ block, index, total, unit, onUp, onDown, onRemov
           </div>
           <div>
             <div className="text-[14.5px] font-semibold tracking-[-0.01em]">{block.name}</div>
-            {block.chips.length > 0 && (
+            {(block.chips.length > 0 || block.planText) && (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {block.chips.map((c) => (
                   <span key={c} className="rounded-md bg-accent px-[7px] py-[3px] text-[10px] text-[#9AA39C]">
                     {c}
                   </span>
                 ))}
+                {block.planText && (
+                  <span className="rounded-md bg-primary/[0.12] px-[7px] py-[3px] text-[10px] font-semibold text-primary">
+                    {block.planText}
+                  </span>
+                )}
               </div>
             )}
           </div>

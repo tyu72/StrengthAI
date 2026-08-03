@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
-import { ArrowLeft, Trash2 } from 'lucide-react'
-import { profile as profileApi, sessions, sets as setsApi, variants as variantsApi } from '@/api/db'
+import { ArrowLeft, ShieldOff, Trash2 } from 'lucide-react'
+import {
+  flags as flagsApi,
+  profile as profileApi,
+  sessions,
+  sets as setsApi,
+  variants as variantsApi,
+} from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
 import { display } from '@/lib/units'
 import { sessionVolumeKg } from '@/lib/coach'
+import { Sheet } from '@/components/Sheet'
 
 export default function SessionDetail() {
   const { sessionId } = useParams()
@@ -19,11 +26,21 @@ export default function SessionDetail() {
   const [variantList, setVariantList] = useState([])
   const [busy, setBusy] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [excluded, setExcluded] = useState(false)
+  const [excludeOpen, setExcludeOpen] = useState(false)
+  const [excludeReason, setExcludeReason] = useState('')
+  const [excluding, setExcluding] = useState(false)
 
   useEffect(() => {
     let alive = true
-    Promise.all([profileApi.get(), sessions.get(sessionId), setsApi.forSession(sessionId), variantsApi.list()])
-      .then(([p, s, st, v]) => {
+    Promise.all([
+      profileApi.get(),
+      sessions.get(sessionId),
+      setsApi.forSession(sessionId),
+      variantsApi.list(),
+      flagsApi.byStatus('excluded'),
+    ])
+      .then(([p, s, st, v, excludedFlags]) => {
         if (!alive) return
         // this screen is read-only; the still-in-progress session belongs on /workout
         if (s.status === 'active') {
@@ -34,6 +51,7 @@ export default function SessionDetail() {
         setSession(s)
         setSessionSets(st)
         setVariantList(v)
+        setExcluded(excludedFlags.some((f) => f.session_id === sessionId))
       })
       .catch((err) => alive && setError(err.message))
       .finally(() => alive && setLoading(false))
@@ -89,6 +107,26 @@ export default function SessionDetail() {
         day: 'numeric',
       })
     : ''
+
+  const handleExclude = async () => {
+    setExcluding(true)
+    try {
+      await flagsApi.create({
+        session_id: sessionId,
+        variant_ids: [],
+        kind: 'manual_exclusion',
+        status: 'excluded',
+        is_medical: false,
+        exclusion_reason: excludeReason.trim(),
+      })
+      setExcluded(true)
+      setExcludeOpen(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setExcluding(false)
+    }
+  }
 
   const handleDelete = async () => {
     setBusy(true)
@@ -160,6 +198,62 @@ export default function SessionDetail() {
             </div>
           </div>
         ))}
+
+        {session?.notes && (
+          <div className="rounded-2xl border border-border bg-card p-[13px]">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Notes
+            </div>
+            <div className="text-[13px] leading-[1.5] text-[#C7CCC6]">{session.notes}</div>
+          </div>
+        )}
+
+        {excluded ? (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border py-3 text-[13px] text-muted-foreground">
+            <ShieldOff className="h-4 w-4" />
+            Excluded from trend analysis
+          </div>
+        ) : (
+          <button
+            onClick={() => setExcludeOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border py-3 text-[13px] text-muted-foreground"
+          >
+            <ShieldOff className="h-4 w-4" />
+            Exclude from trends
+          </button>
+        )}
+
+        <Sheet open={excludeOpen} onOpenChange={setExcludeOpen}>
+          <div className="px-[18px] pb-6">
+            <div className="text-[16px] font-bold tracking-[-0.02em]">Exclude this session?</div>
+            <div className="mt-1 text-[12.5px] leading-[1.5] text-muted-foreground">
+              It stays in your history, but won&apos;t count toward plateau or RIR trends. Say why, so future-you
+              knows this was situational.
+            </div>
+            <textarea
+              value={excludeReason}
+              onChange={(e) => setExcludeReason(e.target.value)}
+              placeholder="e.g. slept 4h, flew back Tuesday, felt sick"
+              rows={3}
+              className="mt-3 w-full resize-none rounded-[14px] border border-border bg-background p-3 text-[13.5px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground/50"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setExcludeOpen(false)}
+                className="flex-1 rounded-2xl border border-border py-[12px] text-center text-[13px] text-muted-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExclude}
+                disabled={excluding || !excludeReason.trim()}
+                className="flex-[2] rounded-2xl bg-primary py-[12px] text-center text-[13px] font-bold text-primary-foreground disabled:opacity-60"
+              >
+                Confirm exclusion
+              </button>
+            </div>
+          </div>
+        </Sheet>
 
         <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialog.Trigger className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 py-3 text-[13px] text-destructive">

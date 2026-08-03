@@ -8,6 +8,7 @@ import ResetPassword from '@/pages/ResetPassword'
 import Home from '@/pages/Home'
 import Workout from '@/pages/Workout'
 import Progress from '@/pages/Progress'
+import Coach from '@/pages/Coach'
 import SessionDetail from '@/pages/SessionDetail'
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/workout/:sessionId" element={<Workout />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/coach" element={<Coach />} />
         </Route>
         <Route path="/session/:sessionId" element={<SessionDetail />} />
       </Route>

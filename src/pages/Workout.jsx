@@ -2,12 +2,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { ArrowLeft, Check, Sparkles, Trash2 } from 'lucide-react'
-import { profile as profileApi, sessions, sets as setsApi, variants as variantsApi } from '@/api/db'
+import {
+  plans as plansApi,
+  profile as profileApi,
+  readiness as readinessApi,
+  sessions,
+  sets as setsApi,
+  variants as variantsApi,
+} from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
+import { display } from '@/lib/units'
 import { ExerciseBlock } from '@/components/workout/ExerciseBlock'
 import { AddExerciseSheet } from '@/components/workout/AddExerciseSheet'
 import { SetLoggerSheet } from '@/components/workout/SetLoggerSheet'
 import { RestTimer } from '@/components/workout/RestTimer'
+import { ReadinessSheet } from '@/components/workout/ReadinessSheet'
 
 const REST_KEY = 'strengthai.rest'
 const REST_SECONDS = 150
@@ -21,8 +30,10 @@ export default function Workout() {
   const [unit, setUnit] = useState('lb')
   const [session, setSession] = useState(null)
   const [name, setName] = useState('')
+  const [notes, setNotes] = useState('')
   const [variantList, setVariantList] = useState([])
   const [sessionSets, setSessionSets] = useState([])
+  const [openPlans, setOpenPlans] = useState([])
   const [busy, setBusy] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -30,6 +41,7 @@ export default function Workout() {
   const [restEnd, setRestEnd] = useState(null)
   const [restLen, setRestLen] = useState(REST_SECONDS)
   const [restFor, setRestFor] = useState('')
+  const [showReadiness, setShowReadiness] = useState(false)
 
   useEffect(() => {
     try {
@@ -50,8 +62,14 @@ export default function Workout() {
 
   useEffect(() => {
     let alive = true
-    Promise.all([profileApi.get(), sessions.get(sessionId), variantsApi.list(), setsApi.forSession(sessionId)])
-      .then(([p, s, v, st]) => {
+    Promise.all([
+      profileApi.get(),
+      sessions.get(sessionId),
+      variantsApi.list(),
+      setsApi.forSession(sessionId),
+      plansApi.list(),
+    ])
+      .then(([p, s, v, st, openPlanRows]) => {
         if (!alive) return
         // this screen is for the live session only; a finished one is read-only on /session
         if (s.status !== 'active') {
@@ -61,8 +79,17 @@ export default function Workout() {
         setUnit(p?.unit ?? 'lb')
         setSession(s)
         setName(s.name || '')
+        setNotes(s.notes || '')
         setVariantList(v)
         setSessionSets(st)
+        setOpenPlans(openPlanRows)
+
+        // a brand-new session (no sets logged yet) gets a readiness check, once
+        if (st.length === 0) {
+          readinessApi.forSession(sessionId).then((rd) => {
+            if (alive && !rd) setShowReadiness(true)
+          })
+        }
       })
       .catch((err) => alive && setError(err.message))
       .finally(() => alive && setLoading(false))
@@ -77,6 +104,12 @@ export default function Workout() {
     return map
   }, [variantList])
 
+  const planByVariant = useMemo(() => {
+    const map = new Map()
+    openPlans.forEach((p) => map.set(p.variant_id, p))
+    return map
+  }, [openPlans])
+
   const blocks = useMemo(() => {
     const order = session?.exercise_order || []
     return order.map((vid) => {
@@ -84,14 +117,16 @@ export default function Workout() {
       const varSets = sessionSets
         .filter((s) => s.variant_id === vid)
         .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
+      const plan = planByVariant.get(vid)
       return {
         variantId: vid,
         name: v ? canonicalLabel(v.base) : 'Unknown exercise',
         chips: v ? [...(v.mods || []), v.muscle].filter(Boolean) : [],
         sets: varSets,
+        planText: plan ? `Coach plan · top set ${Math.round(display(plan.target_load_kg, unit))} ${unit} @ RIR 3` : null,
       }
     })
-  }, [session, variantById, sessionSets])
+  }, [session, variantById, sessionSets, planByVariant, unit])
 
   const formattedDate = session
     ? new Date(session.started_at).toLocaleDateString(undefined, {
@@ -105,6 +140,16 @@ export default function Workout() {
     if (!session || name === (session.name || '')) return
     try {
       const updated = await sessions.update(sessionId, { name })
+      setSession(updated)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const persistNotes = async () => {
+    if (!session || notes === (session.notes || '')) return
+    try {
+      const updated = await sessions.update(sessionId, { notes })
       setSession(updated)
     } catch (err) {
       setError(err.message)
@@ -234,10 +279,27 @@ export default function Workout() {
       })
   }
 
+  const handleSkipReadiness = () => setShowReadiness(false)
+
+  const handleSubmitReadiness = async (values) => {
+    try {
+      await readinessApi.create({ session_id: sessionId, ...values })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setShowReadiness(false)
+    }
+  }
+
   const handleFinish = async () => {
     setBusy(true)
     try {
       await sessions.finish(sessionId)
+      // a plan is consumed when the session finishes, not the first logged set —
+      // an exercise is three or four sets, and the target shouldn't vanish mid-exercise
+      const trainedIds = new Set(session?.exercise_order || [])
+      const consumed = openPlans.filter((p) => trainedIds.has(p.variant_id))
+      await Promise.all(consumed.map((p) => plansApi.consume(p.id)))
       navigate('/', { replace: true })
     } catch (err) {
       setError(err.message)
@@ -329,6 +391,20 @@ export default function Workout() {
           Describe an exercise
         </button>
 
+        <div className="rounded-2xl border border-border bg-card p-[13px]">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Session notes
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={persistNotes}
+            placeholder="How did it feel? Anything off?"
+            rows={3}
+            className="w-full resize-none bg-transparent text-[13.5px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground/50"
+          />
+        </div>
+
         <AlertDialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
           <AlertDialog.Trigger className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 py-3 text-[13px] text-destructive">
             <Trash2 className="h-4 w-4" />
@@ -372,10 +448,13 @@ export default function Workout() {
         variantId={logVariantId}
         variantName={logVariantId ? canonicalLabel(variantById.get(logVariantId)?.base || '') : ''}
         unit={unit}
+        plan={logVariantId ? planByVariant.get(logVariantId) : null}
         onSave={(payload) => handleLogSet(logVariantId, payload)}
       />
 
       <RestTimer restEnd={restEnd} restLen={restLen} restFor={restFor} onExtend={extendRest} onSkip={skipRest} />
+
+      <ReadinessSheet open={showReadiness} onSkip={handleSkipReadiness} onSubmit={handleSubmitReadiness} />
     </div>
   )
 }

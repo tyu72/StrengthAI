@@ -207,6 +207,11 @@ export const recommendations = {
   open: async () =>
     supabase.from('coach_recommendations').select('*').eq('user_id', await uid())
       .eq('status', 'open').order('created_at', { ascending: false }).then(ok),
+  // regardless of status — used for dedup-checking against past (dismissed/accepted)
+  // recommendations, not just what's currently shown
+  all: async () =>
+    supabase.from('coach_recommendations').select('*').eq('user_id', await uid())
+      .order('created_at', { ascending: false }).then(ok),
   create: async (row) =>
     supabase.from('coach_recommendations').insert({ ...row, user_id: await uid() }).select().single().then(ok),
   update: (id, patch) =>
