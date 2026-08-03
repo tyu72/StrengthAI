@@ -178,7 +178,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-full bg-background px-[18px] pt-[14px] pb-10 text-foreground">
+    <div className="min-h-full bg-background px-[18px] pt-[14px] pb-[76px] text-foreground">
       {error && (
         <div className="mb-3 rounded-[14px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
           {error}
@@ -274,7 +274,7 @@ export default function Home() {
           {(sessionsByDay.get(openDay) || []).map((s) => (
             <button
               key={s.id}
-              onClick={() => navigate(`/workout/${s.id}`)}
+              onClick={() => navigate(`/session/${s.id}`)}
               className="text-left text-sm"
             >
               <div className="font-medium">{s.name || 'Workout'}</div>

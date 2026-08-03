@@ -6,6 +6,11 @@ import { profile as profileApi, sessions, sets as setsApi, variants as variantsA
 import { canonicalLabel } from '@/lib/resolver'
 import { ExerciseBlock } from '@/components/workout/ExerciseBlock'
 import { AddExerciseSheet } from '@/components/workout/AddExerciseSheet'
+import { SetLoggerSheet } from '@/components/workout/SetLoggerSheet'
+import { RestTimer } from '@/components/workout/RestTimer'
+
+const REST_KEY = 'strengthai.rest'
+const REST_SECONDS = 150
 
 export default function Workout() {
   const { sessionId } = useParams()
@@ -21,12 +26,38 @@ export default function Workout() {
   const [busy, setBusy] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [logVariantId, setLogVariantId] = useState(null)
+  const [restEnd, setRestEnd] = useState(null)
+  const [restLen, setRestLen] = useState(REST_SECONDS)
+  const [restFor, setRestFor] = useState('')
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REST_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (saved.restEnd > Date.now()) {
+        setRestEnd(saved.restEnd)
+        setRestLen(saved.restLen)
+        setRestFor(saved.restFor)
+      } else {
+        localStorage.removeItem(REST_KEY)
+      }
+    } catch {
+      localStorage.removeItem(REST_KEY)
+    }
+  }, [])
 
   useEffect(() => {
     let alive = true
     Promise.all([profileApi.get(), sessions.get(sessionId), variantsApi.list(), setsApi.forSession(sessionId)])
       .then(([p, s, v, st]) => {
         if (!alive) return
+        // this screen is for the live session only; a finished one is read-only on /session
+        if (s.status !== 'active') {
+          navigate(`/session/${s.id}`, { replace: true })
+          return
+        }
         setUnit(p?.unit ?? 'lb')
         setSession(s)
         setName(s.name || '')
@@ -143,6 +174,66 @@ export default function Workout() {
     }
   }
 
+  const startRestTimer = (name) => {
+    const end = Date.now() + REST_SECONDS * 1000
+    setRestEnd(end)
+    setRestLen(REST_SECONDS)
+    setRestFor(name)
+    localStorage.setItem(REST_KEY, JSON.stringify({ restEnd: end, restLen: REST_SECONDS, restFor: name }))
+  }
+
+  const extendRest = () => {
+    const newEnd = restEnd + 30000
+    const newLen = restLen + 30
+    setRestEnd(newEnd)
+    setRestLen(newLen)
+    localStorage.setItem(REST_KEY, JSON.stringify({ restEnd: newEnd, restLen: newLen, restFor }))
+  }
+
+  const skipRest = () => {
+    setRestEnd(null)
+    localStorage.removeItem(REST_KEY)
+  }
+
+  const handleLogSet = (variantId, { weightKg, reps, rir, rpe }) => {
+    const variant = variantById.get(variantId)
+    const variantName = variant ? canonicalLabel(variant.base) : ''
+    const setNumber = sessionSets.filter((s) => s.variant_id === variantId).length + 1
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const optimisticSet = {
+      id: tempId,
+      session_id: sessionId,
+      variant_id: variantId,
+      weight_kg: weightKg,
+      reps,
+      rir,
+      rpe,
+      set_number: setNumber,
+      logged_at: new Date().toISOString(),
+    }
+
+    setSessionSets((list) => [...list, optimisticSet])
+    startRestTimer(variantName)
+
+    setsApi
+      .log({
+        session_id: sessionId,
+        variant_id: variantId,
+        weight_kg: weightKg,
+        reps,
+        rir,
+        rpe,
+        set_number: setNumber,
+      })
+      .then((real) => {
+        setSessionSets((list) => list.map((s) => (s.id === tempId ? real : s)))
+      })
+      .catch((err) => {
+        setSessionSets((list) => list.filter((s) => s.id !== tempId))
+        setError(err.message)
+      })
+  }
+
   const handleFinish = async () => {
     setBusy(true)
     try {
@@ -200,7 +291,7 @@ export default function Workout() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 px-[18px] pt-[14px] pb-8">
+      <div className="flex flex-col gap-3 px-[18px] pt-[14px] pb-[76px]">
         {error && (
           <div className="rounded-[14px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
             {error}
@@ -226,7 +317,7 @@ export default function Workout() {
             onDown={() => reorder(i, 1)}
             onRemove={() => removeExercise(block.variantId)}
             onDeleteSet={deleteSet}
-            onLogSet={() => {}}
+            onLogSet={() => setLogVariantId(block.variantId)}
           />
         ))}
 
@@ -274,6 +365,17 @@ export default function Workout() {
         unit={unit}
         onAdd={handleAddExercise}
       />
+
+      <SetLoggerSheet
+        open={!!logVariantId}
+        onOpenChange={(v) => !v && setLogVariantId(null)}
+        variantId={logVariantId}
+        variantName={logVariantId ? canonicalLabel(variantById.get(logVariantId)?.base || '') : ''}
+        unit={unit}
+        onSave={(payload) => handleLogSet(logVariantId, payload)}
+      />
+
+      <RestTimer restEnd={restEnd} restLen={restLen} restFor={restFor} onExtend={extendRest} onSkip={skipRest} />
     </div>
   )
 }

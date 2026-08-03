@@ -65,8 +65,7 @@ export function ExerciseBlock({ block, index, total, unit, onUp, onDown, onRemov
 
       <button
         onClick={onLogSet}
-        disabled
-        className="flex w-full items-center justify-center gap-1 border-t border-accent py-[10px] text-[13px] font-semibold text-primary disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-1 border-t border-accent py-[10px] text-[13px] font-semibold text-primary"
       >
         <Plus className="h-[17px] w-[17px]" />
         Log set
