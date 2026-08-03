@@ -616,17 +616,29 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <button onClick="{{ wUp }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C;flex:none"><i>add</i></button>
 </div>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px">
-<sc-for list="{{ setFields }}" as="f" hint-placeholder-count="3">
-<div style="background:#101211;border:1px solid #272C29;border-radius:14px;padding:10px;min-width:0">
-<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C;font-weight:600;text-align:center">{{ f.label }}</div>
-<div style="display:flex;align-items:center;gap:1px;margin-top:5px;min-width:0">
-<button onClick="{{ f.dec }}" style="width:24px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5F665F;flex:none"><i style="font-size:16px">remove</i></button>
-<input value="{{ f.value }}" onChange="{{ f.set }}" type="number" size="1" placeholder="{{ f.ph }}" style="flex:1;width:100%;min-width:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:19px">
-<button onClick="{{ f.inc }}" style="width:24px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5F665F;flex:none"><i style="font-size:16px">add</i></button>
+<div style="background:#101211;border:1px solid #272C29;border-radius:16px;padding:10px 14px;margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C;font-weight:600">Reps</div>
+<div style="display:flex;align-items:center;gap:6px">
+<button onClick="{{ repsDec }}" style="width:36px;height:36px;border-radius:11px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C;flex:none"><i style="font-size:18px">remove</i></button>
+<input value="{{ setR }}" onChange="{{ setSetR }}" type="number" placeholder="{{ setRPh }}" style="width:58px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:-.03em">
+<button onClick="{{ repsInc }}" style="width:36px;height:36px;border-radius:11px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C;flex:none"><i style="font-size:18px">add</i></button>
 </div>
 </div>
+
+<div style="background:#101211;border:1px solid #272C29;border-radius:16px;padding:13px 12px 12px;margin-top:9px">
+<div style="font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:#8A928C;font-weight:600;text-align:center">Reps in reserve</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:38px;letter-spacing:-.05em;line-height:1.05;text-align:center;margin-top:5px;color:{{ rirColor }}">{{ rirBig }}</div>
+<div style="font-size:13px;font-weight:600;text-align:center;margin-top:2px">{{ rirLabel }}</div>
+<div style="font-size:11.5px;color:#8A928C;text-align:center;margin-top:2px">{{ rirSub }}</div>
+<div style="display:flex;gap:3px;margin-top:11px">
+<sc-for list="{{ rirStops }}" as="s" hint-placeholder-count="8">
+<button onClick="{{ s.pick }}" style="flex:1;min-width:0;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;background:{{ s.bg }};color:{{ s.fg }};border:{{ s.bd }}">{{ s.t }}</button>
 </sc-for>
+</div>
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid #1E2220">
+<div style="font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:#5F665F;font-weight:600">RPE</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8A928C">{{ rpeShow }}</div>
+</div>
 </div>
 <div style="display:flex;gap:8px;margin-top:14px">
 <button onClick="{{ closeSheet }}" style="flex:1;border:1px solid #272C29;border-radius:14px;padding:14px;text-align:center;font-size:13px;color:#8A928C">Cancel</button>
@@ -1192,7 +1204,7 @@ class Component extends DCLogic {
             hasPlan: !!plan, planText: plan ? 'Coach plan · top set ' + Math.round(this.dw(plan.load)) + ' ' + u + ' @ RIR 3' : '',
             chips: (v.mods || []).map(m => ({ t: m })).concat([{ t: v.m || '' }]).filter(c => c.t),
             sets: list.map((s, i) => ({ n: i + 1, w: this.dw(s.weight), reps: s.reps, rir: s.rir, rpe: s.rpe, unit: u, rirColor: s.rir <= 1 ? '#F2B544' : '#ECEFEA', del: () => this.mut(x => { x.sets = x.sets.filter(y => y.id !== s.id); }) })),
-            add: () => this.setState({ sheet: 'log', logEx: vid, setW: '', setR: '', setRir: '', setRpe: '' }),
+            add: () => this.setState({ sheet: 'log', logEx: vid, setW: '', setR: '', setRir: '' }),
             remove: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss) ss.exerciseIds = ss.exerciseIds.filter(e => e !== vid); x.sets = x.sets.filter(y => !(y.sessionId === sess.id && y.variantId === vid)); }),
             up: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss && idx > 0) { const a = ss.exerciseIds; const t = a[idx - 1]; a[idx - 1] = a[idx]; a[idx] = t; } }),
             down: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss && idx < ss.exerciseIds.length - 1) { const a = ss.exerciseIds; const t = a[idx + 1]; a[idx + 1] = a[idx]; a[idx] = t; } })
@@ -1302,18 +1314,47 @@ class Component extends DCLogic {
       const step = u === 'lb' ? 5 : 2.5;
       V.wUp = () => this.setState({ setW: String((parseFloat(st.setW) || (best ? this.dw(best.weight) : 0)) + step) });
       V.wDown = () => this.setState({ setW: String(Math.max(0, (parseFloat(st.setW) || (best ? this.dw(best.weight) : 0)) - step)) });
-      const mk = (label, key, stp, max, ph) => ({
-        label: label, value: st[key], ph: ph == null ? '' : String(ph),
-        set: e => this.setState({ [key]: e.target.value }),
-        inc: () => this.setState({ [key]: String(Math.min(max, (parseFloat(st[key]) || 0) + stp)) }),
-        dec: () => this.setState({ [key]: String(Math.max(0, (parseFloat(st[key]) || 0) - stp)) })
+      V.setR = st.setR; V.setRPh = best ? String(best.reps) : '0';
+      V.setSetR = e => this.setState({ setR: e.target.value });
+      V.repsInc = () => this.setState({ setR: String(Math.min(100, (parseFloat(st.setR) || (best ? best.reps : 0)) + 1)) });
+      V.repsDec = () => this.setState({ setR: String(Math.max(1, (parseFloat(st.setR) || (best ? best.reps : 2)) - 1)) });
+
+      // RIR is the value the lifter enters and the coach reads; RPE is derived (10 - RIR).
+      // Half steps only from 1 to 3 — that is the range where "maybe one more, maybe two"
+      // is a real answer. Half a rep in reserve is meaningless, and nobody can judge the
+      // difference between 4 and 4.5.
+      const RIR_SCALE = [
+        [0, 'Failure', 'Nothing left in the tank'],
+        [1, 'Near failure', 'One more rep, no question'],
+        [1.5, 'Near failure', 'Maybe one, maybe two'],
+        [2, 'Hard', 'Two more reps'],
+        [2.5, 'Hard', 'Maybe two, maybe three'],
+        [3, 'Controlled', 'Three more reps'],
+        [4, 'Comfortable', 'Four more reps'],
+        [5, 'Easy', 'Five or more — a warmup weight']
+      ];
+      const rirSel = st.setRir === '' || st.setRir == null ? null : parseFloat(st.setRir);
+      const rirRow = RIR_SCALE.find(r => r[0] === rirSel);
+      V.rirBig = rirSel == null ? '–' : String(rirSel);
+      V.rirColor = rirSel == null ? '#3A403B' : rirSel <= 1 ? '#F2B544' : accent;
+      V.rirLabel = rirRow ? rirRow[1] : 'Rate the set';
+      V.rirSub = rirRow ? rirRow[2] : best ? 'Last time you logged RIR ' + best.rir : 'How many more reps could you have done?';
+      V.rpeShow = rirSel == null ? '–' : String(Math.round((10 - rirSel) * 10) / 10);
+      V.rirStops = RIR_SCALE.map(r => {
+        const on = r[0] === rirSel;
+        return {
+          t: String(r[0]),
+          bg: on ? accent : '#171A18',
+          fg: on ? '#12160B' : '#8A928C',
+          bd: on ? '1px solid ' + accent : '1px solid #22272400',
+          pick: () => this.setState({ setRir: String(r[0]) })
+        };
       });
-      V.setFields = [mk('Reps', 'setR', 1, 100, best ? best.reps : ''), mk('RIR', 'setRir', 0.5, 5, best ? best.rir : ''), mk('RPE', 'setRpe', 0.5, 10, best ? best.rpe : '')];
       V.saveSet = () => {
         const sess = this.curSession(); if (!sess) return;
         const w = this.fromInput(st.setW || V.setWPh), r = parseFloat(st.setR) || (best ? best.reps : 0);
-        const rir = st.setRir === '' ? (best ? best.rir : 2) : parseFloat(st.setRir);
-        const rpe = st.setRpe === '' ? Math.round((10 - rir) * 2) / 2 : parseFloat(st.setRpe);
+        const rir = rirSel == null ? (best ? best.rir : 2) : rirSel;
+        const rpe = Math.round((10 - rir) * 10) / 10;
         const n = this.setsOf(sess.id).filter(x => x.variantId === st.logEx).length + 1;
         this.mut(s => { s.sets.push({ id: this.uid(), sessionId: sess.id, variantId: st.logEx, weight: w, reps: r, rir: rir, rpe: rpe, n: n, ts: new Date().toISOString() }); s.plans = (s.plans || []).filter(p => p.variantId !== st.logEx); });
         this.setState({ sheet: null, restEnd: Date.now() + 150000, restLen: 150, restFor: this.vName(v) });

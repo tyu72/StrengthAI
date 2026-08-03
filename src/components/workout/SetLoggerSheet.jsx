@@ -5,21 +5,25 @@ import { sets as setsApi } from '@/api/db'
 import { display, rirToRpe, step, toKg } from '@/lib/units'
 import { e1rm } from '@/lib/coach'
 
-function numField(value, setValue, stepAmt, max, placeholder) {
-  return {
-    value,
-    placeholder: placeholder === '' || placeholder == null ? '' : String(placeholder),
-    onChange: (e) => setValue(e.target.value),
-    inc: () => setValue(String(Math.min(max, (parseFloat(value) || 0) + stepAmt))),
-    dec: () => setValue(String(Math.max(0, (parseFloat(value) || 0) - stepAmt))),
-  }
-}
+// RIR is what the lifter enters and what the coach reads; RPE is derived (10 - RIR).
+// Asking for both let them contradict each other, so RPE is display-only now.
+// Half steps exist only between 1 and 3 — that's the range where "maybe two, maybe
+// three" is a real answer. Nobody can judge the difference between 4 and 4.5.
+const RIR_SCALE = [
+  { rir: 0, label: 'Failure', sub: 'Nothing left in the tank' },
+  { rir: 1, label: 'Near failure', sub: 'One more rep, no question' },
+  { rir: 1.5, label: 'Near failure', sub: 'Maybe one, maybe two' },
+  { rir: 2, label: 'Hard', sub: 'Two more reps' },
+  { rir: 2.5, label: 'Hard', sub: 'Maybe two, maybe three' },
+  { rir: 3, label: 'Controlled', sub: 'Three more reps' },
+  { rir: 4, label: 'Comfortable', sub: 'Four more reps' },
+  { rir: 5, label: 'Easy', sub: 'Five or more — a warmup weight' },
+]
 
 export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, unit, plan, onSave }) {
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [rir, setRir] = useState('')
-  const [rpe, setRpe] = useState('')
   const [last, setLast] = useState(null)
   const [best, setBest] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -29,7 +33,6 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
     setWeight('')
     setReps('')
     setRir('')
-    setRpe('')
     setLast(null)
     setBest(null)
     setHistoryLoading(true)
@@ -56,24 +59,21 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
       : 'first time logging this'
   const logPlan = plan ? `Coach plan: ${Math.round(weightPh)} ${unit} at RIR 3 — pre-filled below.` : null
 
-  const repsField = numField(reps, setReps, 1, 100, best ? best.reps : '')
-  const rirField = numField(rir, setRir, 0.5, 5, best ? best.rir : '')
-  const rpeField = numField(rpe, setRpe, 0.5, 10, best ? best.rpe : '')
+  const repsPh = best ? best.reps : 0
+  const repsInc = () => setReps(String(Math.min(100, (parseFloat(reps) || repsPh) + 1)))
+  const repsDec = () => setReps(String(Math.max(1, (parseFloat(reps) || repsPh) - 1)))
+
+  const rirSel = rir === '' ? null : parseFloat(rir)
+  const rirRow = RIR_SCALE.find((r) => r.rir === rirSel)
+  const rirHint = last ? `Last time you logged RIR ${last.rir}` : 'How many more reps could you have done?'
 
   const handleSave = () => {
     const weightKg = toKg(weight !== '' ? weight : weightPh, unit)
     const repsVal = parseFloat(reps) || (best ? best.reps : 0)
-    const rirVal = rir !== '' ? parseFloat(rir) : best ? best.rir : 2
-    const rpeVal = rpe !== '' ? parseFloat(rpe) : rirToRpe(rirVal)
-    onSave({ weightKg, reps: repsVal, rir: rirVal, rpe: rpeVal })
+    const rirVal = rirSel == null ? (best ? best.rir : 2) : rirSel
+    onSave({ weightKg, reps: repsVal, rir: rirVal, rpe: rirToRpe(rirVal) })
     onOpenChange(false)
   }
-
-  const fields = [
-    { label: 'Reps', f: repsField },
-    { label: 'RIR', f: rirField },
-    { label: 'RPE', f: rpeField },
-  ]
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -116,29 +116,69 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </div>
         </div>
 
-        <div className="mt-[9px] grid grid-cols-3 gap-2">
-          {fields.map(({ label, f }) => (
-            <div key={label} className="min-w-0 rounded-[14px] border border-border bg-background p-[10px]">
-              <div className="text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                {label}
-              </div>
-              <div className="mt-[5px] flex items-center gap-px">
-                <button onClick={f.dec} className="flex h-[30px] w-6 shrink-0 items-center justify-center text-[#5F665F]">
-                  <Minus className="h-4 w-4" />
-                </button>
-                <input
-                  value={f.value}
-                  onChange={f.onChange}
-                  type="number"
-                  placeholder={f.placeholder}
-                  className="w-full min-w-0 flex-1 bg-transparent text-center font-mono text-[19px] text-foreground outline-none"
-                />
-                <button onClick={f.inc} className="flex h-[30px] w-6 shrink-0 items-center justify-center text-[#5F665F]">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
+        <div className="mt-[9px] flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-[14px] py-[10px]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Reps</div>
+          <div className="flex items-center gap-[6px]">
+            <button
+              onClick={repsDec}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
+            >
+              <Minus className="h-[18px] w-[18px]" />
+            </button>
+            <input
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+              type="number"
+              placeholder={String(repsPh)}
+              className="w-[58px] bg-transparent text-center font-mono text-[24px] tracking-[-0.03em] text-foreground outline-none"
+            />
+            <button
+              onClick={repsInc}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
+            >
+              <Plus className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-[9px] rounded-2xl border border-border bg-background px-3 pb-3 pt-[13px]">
+          <div className="text-center text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
+            Reps in reserve
+          </div>
+          <div
+            className={`mt-[5px] text-center font-mono text-[38px] leading-[1.05] tracking-[-0.05em] ${
+              rirSel == null ? 'text-[#3A403B]' : rirSel <= 1 ? 'text-[#F2B544]' : 'text-primary'
+            }`}
+          >
+            {rirSel == null ? '—' : rirSel}
+          </div>
+          <div className="mt-[2px] text-center text-[13px] font-semibold">{rirRow ? rirRow.label : 'Rate the set'}</div>
+          <div className="mt-[2px] text-center text-[11.5px] text-muted-foreground">
+            {rirRow ? rirRow.sub : rirHint}
+          </div>
+
+          <div className="mt-[11px] flex gap-[3px]">
+            {RIR_SCALE.map(({ rir: stop }) => (
+              <button
+                key={stop}
+                onClick={() => setRir(String(stop))}
+                className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[11px] border font-mono text-[13px] ${
+                  stop === rirSel
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-transparent bg-card text-muted-foreground'
+                }`}
+              >
+                {stop}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-[10px] flex items-center justify-center gap-[6px] border-t border-[#1E2220] pt-[9px]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.11em] text-[#5F665F]">RPE</div>
+            <div className="font-mono text-[13px] text-muted-foreground">
+              {rirSel == null ? '—' : rirToRpe(rirSel)}
             </div>
-          ))}
+          </div>
         </div>
 
         <div className="mt-[14px] flex gap-2">
