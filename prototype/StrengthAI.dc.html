@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics=""><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,300,0,0&amp;display=block" rel="stylesheet"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#0A0B0A;font-family:'Instrument Sans',system-ui,sans-serif}
+a{color:#A8C9A2;text-decoration:none}
+a:hover{color:#C8E0C2}
+button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none;padding:0;-webkit-tap-highlight-color:transparent;text-align:left}
+input,textarea{background:none;border:none;outline:none}
+textarea{resize:none}
+*::-webkit-scrollbar{width:0;height:0;display:none}
+*{scrollbar-width:none}
+input[type=range]{accent-color:#A8C9A2;width:100%;height:22px}
+i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-height:1;font-variation-settings:'wght' 300;-webkit-font-feature-settings:'liga';user-select:none;flex:none}
+@keyframes su{from{transform:translateY(101%)}to{transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes pl{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes ri{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style></helmet>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#101211"></rect><rect x="30" y="44" width="40" height="12" rx="6" fill="#A8C9A2"></rect><rect x="18" y="38" width="12" height="24" rx="5" fill="#A8C9A2"></rect><rect x="70" y="38" width="12" height="24" rx="5" fill="#A8C9A2"></rect></svg></template>
+<div style="min-height:100vh;background:#0A0B0A;color:#ECEFEA;display:flex;justify-content:center;align-items:flex-start;gap:40px;padding:{{ canvasPad }}">
+
+<div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:14px">
+<div style="position:relative;overflow:hidden;background:#101211;border:{{ dBorder }};flex:none;width:{{ dw }};height:{{ dh }};border-radius:{{ dr }};box-shadow:0 40px 90px rgba(0,0,0,.6)">
+
+<sc-if value="{{ framed }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;top:0;left:0;right:0;height:52px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:14px 30px 0;pointer-events:none">
+<div style="font-size:14px;font-weight:600;letter-spacing:.02em">{{ clock }}</div>
+<div style="display:flex;align-items:center;gap:5px;opacity:.9">
+<div style="display:flex;align-items:flex-end;gap:2px;height:11px"><div style="width:3px;height:4px;background:#ECEFEA;border-radius:1px"></div><div style="width:3px;height:6px;background:#ECEFEA;border-radius:1px"></div><div style="width:3px;height:9px;background:#ECEFEA;border-radius:1px"></div><div style="width:3px;height:11px;background:#ECEFEA;border-radius:1px"></div></div>
+<div style="width:22px;height:11px;border:1px solid rgba(236,239,234,.5);border-radius:3px;padding:1.5px"><div style="width:70%;height:100%;background:#ECEFEA;border-radius:1px"></div></div>
+</div>
+</div>
+<div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:32px;border-radius:20px;background:#000;z-index:45"></div>
+</sc-if>
+
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;background:#101211;padding-top:{{ topPad }}">
+<div style="flex:1;min-height:0;position:relative">
+
+<div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div style="padding:14px 18px 128px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+<div style="display:flex;align-items:center;gap:11px">
+<img src="assets/logo.png" alt="StrengthAI" style="width:38px;height:38px;border-radius:12px;display:block;object-fit:cover;flex:none"></img>
+<div><div style="font-weight:600;font-size:16px;letter-spacing:-.01em;line-height:1.1">StrengthAI</div><div style="font-size:11px;color:#8A928C;margin-top:2px">Train Smarter</div></div>
+</div>
+<button onClick="{{ goSettings }}" style="width:38px;height:38px;border-radius:12px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C"><i>settings</i></button>
+</div>
+
+<button onClick="{{ startWorkout }}" style="width:100%;background:#A8C9A2;border-radius:20px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;color:#12160B;margin-bottom:10px">
+<div><div style="font-weight:700;font-size:18px;letter-spacing:-.02em">{{ startTitle }}</div><div style="font-size:13px;opacity:.7;margin-top:2px">{{ startSub }}</div></div>
+<div style="width:44px;height:44px;border-radius:50%;background:#12160B;color:#A8C9A2;display:flex;align-items:center;justify-content:center"><i style="font-size:24px;font-variation-settings:'FILL' 1">play_arrow</i></div>
+</button>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:24px">
+<sc-for list="{{ weekStats }}" as="s" hint-placeholder-count="3">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:14px;padding:11px 12px">
+<div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:500;letter-spacing:-.03em">{{ s.v }}<span style="font-size:11px;color:#8A928C;margin-left:2px">{{ s.u }}</span></div>
+<div style="font-size:10px;color:#8A928C;text-transform:uppercase;letter-spacing:.1em;margin-top:3px">{{ s.k }}</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Training calendar</div>
+<div style="display:flex;align-items:center;gap:2px">
+<button onClick="{{ prevMonth }}" style="width:26px;height:26px;border-radius:8px;color:#8A928C;display:flex;align-items:center;justify-content:center"><i style="font-size:18px">chevron_left</i></button>
+<button onClick="{{ thisMonth }}" style="font-size:11px;color:#8A928C;padding:0 6px">Today</button>
+<button onClick="{{ nextMonth }}" style="width:26px;height:26px;border-radius:8px;color:#8A928C;display:flex;align-items:center;justify-content:center"><i style="font-size:18px">chevron_right</i></button>
+</div>
+</div>
+
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:14px 13px 11px;margin-bottom:24px">
+<div style="font-size:13px;font-weight:600;margin-bottom:10px;letter-spacing:-.01em">{{ calMonth }}</div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px">
+<sc-for list="{{ weekdays }}" as="d" hint-placeholder-count="7"><div style="text-align:center;font-size:9px;color:#5F665F;font-weight:600;letter-spacing:.06em">{{ d.l }}</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+<sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35">
+<button onClick="{{ c.pick }}" style="aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-family:'JetBrains Mono',monospace;background:{{ c.bg }};color:{{ c.fg }};border:{{ c.ring }}">{{ c.n }}<div style="width:4px;height:4px;border-radius:50%;background:{{ c.dot }}"></div></button>
+</sc-for>
+</div>
+</div>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Weekly goals</div>
+<div style="font-size:11px;color:#5F665F;font-family:'JetBrains Mono',monospace">{{ weekRange }}</div>
+</div>
+<sc-if value="{{ hasGoals }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ goalRows }}" as="g" hint-placeholder-count="4">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:14px;padding:12px 13px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+<div style="font-size:13px;font-weight:500">{{ g.label }}</div>
+<div style="font-size:11px;color:{{ g.color }};font-family:'JetBrains Mono',monospace">{{ g.count }}</div>
+</div>
+<div style="height:5px;border-radius:99px;background:#22272410;background-color:#222724;margin-top:9px;overflow:hidden"><div style="height:100%;border-radius:99px;background:{{ g.color }};width:{{ g.pct }}"></div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noGoals }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ goSettings }}" style="width:100%;border:1px dashed #272C29;border-radius:14px;padding:18px;text-align:center;color:#8A928C;font-size:13px">No weekly goals yet — <span style="color:#A8C9A2">set them in Settings</span></button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWorkout }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 0 150px">
+<div style="position:sticky;top:0;z-index:20;background:rgba(16,18,17,.92);backdrop-filter:blur(12px);border-bottom:1px solid #1E2220;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+<button onClick="{{ goHome }}" style="width:36px;height:36px;border-radius:11px;color:#8A928C;display:flex;align-items:center;justify-content:center"><i>arrow_back</i></button>
+<div style="text-align:center;min-width:0"><div style="font-size:14px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wTitle }}</div><div style="font-size:11px;color:#8A928C;margin-top:1px">{{ wDate }}</div></div>
+<button onClick="{{ finishWorkout }}" style="background:#A8C9A2;color:#12160B;border-radius:11px;padding:9px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px"><i style="font-size:17px">check</i>Finish</button>
+</div>
+
+<div style="padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+<input value="{{ wName }}" onChange="{{ setWName }}" placeholder="Name this workout" style="width:100%;background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px 16px;font-size:16px;font-weight:600;letter-spacing:-.01em">
+
+<sc-for list="{{ wFlags }}" as="f" hint-placeholder-count="0">
+<div style="border:1px solid {{ f.bd }};background:{{ f.bg }};border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:7px"><i style="font-size:17px;color:{{ f.ac }}">{{ f.icon }}</i><div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:{{ f.ac }};font-weight:700">{{ f.kind }}</div></div>
+<div style="font-size:13px;font-weight:600;letter-spacing:-.01em">{{ f.subject }}</div>
+<div style="font-size:13px;line-height:1.5;color:#C7CCC6">{{ f.explanation }}</div>
+<div style="background:#101211;border:1px solid #272C29;border-radius:12px;padding:11px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Recommendation</div><div style="font-size:13px;font-weight:500;margin-top:4px;line-height:1.45">{{ f.recommendation }}</div></div>
+<div style="font-size:11.5px;color:#8A928C;line-height:1.5">{{ f.reasoning }}</div>
+<sc-if value="{{ f.showReply }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<textarea value="{{ replyText }}" onChange="{{ setReplyText }}" rows="2" placeholder="What actually happened? e.g. slept 4h, flew back Tuesday" style="width:100%;background:#101211;border:1px solid #272C29;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45"></textarea>
+<div style="display:flex;gap:8px"><button onClick="{{ cancelReply }}" style="flex:1;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;color:#8A928C;text-align:center">Cancel</button><button onClick="{{ f.sendReply }}" style="flex:2;background:#A8C9A2;color:#12160B;border-radius:10px;padding:9px;font-size:12px;font-weight:700;text-align:center">Send to coach</button></div>
+</div>
+</sc-if>
+<sc-if value="{{ f.hasReply }}" hint-placeholder-val="{{ false }}">
+<div style="background:#101211;border:1px solid #272C29;border-radius:12px;padding:11px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">You said</div><div style="font-size:13px;margin-top:4px">{{ f.reply }}</div></div>
+<div style="background:rgba(168,201,162,.07);border:1px solid rgba(168,201,162,.22);border-radius:12px;padding:11px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#A8C9A2;font-weight:700">Coach</div><div style="font-size:13px;margin-top:4px;line-height:1.5">{{ f.aiResponse }}</div></div>
+</sc-if>
+<sc-if value="{{ f.actions }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:8px"><button onClick="{{ f.onReply }}" style="flex:1;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;color:#8A928C;text-align:center">Reply</button><button onClick="{{ f.onGotIt }}" style="flex:1;background:#1E2220;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;font-weight:600;text-align:center">Got it</button></div>
+</sc-if>
+<sc-if value="{{ f.exclusion }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:8px"><button onClick="{{ f.onGotIt }}" style="flex:1;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;color:#8A928C;text-align:center">Keep in analysis</button><button onClick="{{ f.onExclude }}" style="flex:2;background:#F2B544;color:#1A1405;border-radius:10px;padding:9px;font-size:12px;font-weight:700;text-align:center">Confirm exclusion</button></div>
+</sc-if>
+</div>
+</sc-for>
+
+<sc-for list="{{ wBlocks }}" as="b" hint-placeholder-count="2">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;overflow:hidden">
+<div style="display:flex;align-items:flex-start;gap:10px;padding:13px 13px 11px">
+<div style="display:flex;flex-direction:column;gap:1px;padding-top:2px"><button onClick="{{ b.up }}" style="color:#5F665F;height:15px;display:flex;align-items:center"><i style="font-size:16px">keyboard_arrow_up</i></button><button onClick="{{ b.down }}" style="color:#5F665F;height:15px;display:flex;align-items:center"><i style="font-size:16px">keyboard_arrow_down</i></button></div>
+<div style="min-width:0;flex:1">
+<div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">{{ b.name }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+<sc-for list="{{ b.chips }}" as="c" hint-placeholder-count="2"><div style="font-size:10px;padding:3px 7px;border-radius:6px;background:#22272B;background-color:#212623;color:#9AA39C;letter-spacing:.02em">{{ c.t }}</div></sc-for>
+<sc-if value="{{ b.hasPlan }}" hint-placeholder-val="{{ false }}"><div style="font-size:10px;padding:3px 7px;border-radius:6px;background:rgba(168,201,162,.12);color:#A8C9A2;letter-spacing:.02em;font-weight:600">{{ b.planText }}</div></sc-if>
+</div>
+</div>
+<button onClick="{{ b.remove }}" style="color:#5F665F;padding:2px"><i style="font-size:17px">close</i></button>
+</div>
+<sc-if value="{{ b.hasSets }}" hint-placeholder-val="{{ true }}">
+<div style="padding:0 13px">
+<div style="display:grid;grid-template-columns:20px 1fr 46px 42px 42px 24px;gap:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#5F665F;padding:0 0 5px">
+<div>#</div><div>Weight</div><div>Reps</div><div>RIR</div><div>RPE</div><div></div>
+</div>
+<sc-for list="{{ b.sets }}" as="s" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:20px 1fr 46px 42px 42px 24px;gap:6px;align-items:center;padding:7px 0;border-top:1px solid #1E2220;font-family:'JetBrains Mono',monospace;font-size:13px">
+<div style="color:#5F665F">{{ s.n }}</div><div>{{ s.w }}<span style="font-size:10px;color:#8A928C;margin-left:3px;font-family:'Instrument Sans',sans-serif">{{ s.unit }}</span></div><div>{{ s.reps }}</div><div style="color:{{ s.rirColor }}">{{ s.rir }}</div><div>{{ s.rpe }}</div>
+<button onClick="{{ s.del }}" style="color:#5F665F;display:flex;justify-content:flex-end"><i style="font-size:15px">delete</i></button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<button onClick="{{ b.add }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-top:1px solid #1E2220;color:#A8C9A2;font-size:13px;font-weight:600;margin-top:8px"><i style="font-size:17px">add</i>Log set</button>
+</div>
+</sc-for>
+
+<button onClick="{{ openAdd }}" style="width:100%;border:1px dashed #313632;border-radius:18px;padding:15px;display:flex;align-items:center;justify-content:center;gap:8px;color:#9AA39C;font-size:13.5px;font-weight:500"><i style="font-size:18px;color:#A8C9A2">auto_awesome</i>Describe an exercise</button>
+
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:13px">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:8px">Session notes</div>
+<textarea value="{{ wNotes }}" onChange="{{ setWNotes }}" rows="2" placeholder="How did it feel? Anything off?" style="width:100%;font-size:13.5px;line-height:1.5"></textarea>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+<sc-for list="{{ noteExamples }}" as="n" hint-placeholder-count="2"><button onClick="{{ n.use }}" style="font-size:11px;padding:5px 9px;border-radius:8px;border:1px solid #272C29;color:#8A928C">{{ n.t }}</button></sc-for>
+</div>
+<sc-if value="{{ hasNoteScan }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:10px;border-top:1px solid #1E2220;padding-top:10px;display:flex;gap:8px;align-items:flex-start">
+<i style="font-size:16px;color:{{ noteScanColor }};margin-top:1px">{{ noteScanIcon }}</i>
+<div><div style="font-size:12px;font-weight:600;color:{{ noteScanColor }}">{{ noteScanLabel }}</div><div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:2px">{{ noteScanDetail }}</div></div>
+</div>
+</sc-if>
+</div>
+
+<button onClick="{{ discardWorkout }}" style="width:100%;border:1px solid rgba(242,112,92,.28);border-radius:16px;padding:12px;text-align:center;color:#F2705C;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px"><i style="font-size:16px">delete</i>Discard workout</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWorkouts }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 18px 128px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
+<div><div style="font-size:22px;font-weight:700;letter-spacing:-.025em">Workouts</div><div style="font-size:12px;color:#8A928C;margin-top:3px">Reusable templates</div></div>
+<button onClick="{{ newTemplate }}" style="width:40px;height:40px;border-radius:13px;background:#A8C9A2;color:#12160B;display:flex;align-items:center;justify-content:center"><i style="font-size:22px">add</i></button>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ tplList }}" as="t" hint-placeholder-count="3">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+<button onClick="{{ t.open }}" style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;letter-spacing:-.01em">{{ t.name }}</div><div style="font-size:12px;color:#8A928C;margin-top:3px;line-height:1.4">{{ t.summary }}</div></button>
+<button onClick="{{ t.del }}" style="color:#5F665F;padding:2px"><i style="font-size:17px">delete</i></button>
+</div>
+<button onClick="{{ t.start }}" style="width:100%;margin-top:12px;background:#1E2220;border:1px solid #313632;border-radius:12px;padding:11px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600"><i style="font-size:17px;font-variation-settings:'FILL' 1;color:#A8C9A2">play_arrow</i>Start</button>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ noTemplates }}" hint-placeholder-val="{{ false }}">
+<div style="text-align:center;padding:60px 20px;color:#5F665F"><i style="font-size:38px">exercise</i><div style="font-size:13px;margin-top:10px">No templates yet. Tap + to build one.</div></div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTemplate }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 0 128px">
+<div style="position:sticky;top:0;z-index:20;background:rgba(16,18,17,.92);backdrop-filter:blur(12px);border-bottom:1px solid #1E2220;padding:10px 14px;display:flex;align-items:center;gap:10px">
+<button onClick="{{ goWorkouts }}" style="width:36px;height:36px;border-radius:11px;color:#8A928C;display:flex;align-items:center;justify-content:center"><i>arrow_back</i></button>
+<div style="font-size:14px;font-weight:600">Edit template</div>
+</div>
+<div style="padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+<input value="{{ tplName }}" onChange="{{ setTplName }}" placeholder="Template name" style="width:100%;background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px 16px;font-size:16px;font-weight:600">
+<sc-for list="{{ tplItems }}" as="it" hint-placeholder-count="3">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:13px;display:flex;align-items:center;gap:10px">
+<div style="display:flex;flex-direction:column;gap:1px"><button onClick="{{ it.up }}" style="color:#5F665F;height:15px;display:flex;align-items:center"><i style="font-size:16px">keyboard_arrow_up</i></button><button onClick="{{ it.down }}" style="color:#5F665F;height:15px;display:flex;align-items:center"><i style="font-size:16px">keyboard_arrow_down</i></button></div>
+<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">{{ it.name }}</div><div style="font-size:11px;color:#8A928C;margin-top:2px">{{ it.mods }}</div></div>
+<button onClick="{{ it.remove }}" style="color:#5F665F"><i style="font-size:17px">close</i></button>
+</div>
+</sc-for>
+<button onClick="{{ openAddTpl }}" style="width:100%;border:1px dashed #313632;border-radius:16px;padding:15px;display:flex;align-items:center;justify-content:center;gap:8px;color:#9AA39C;font-size:13.5px"><i style="font-size:18px;color:#A8C9A2">auto_awesome</i>Describe an exercise</button>
+<button onClick="{{ startTpl }}" style="width:100%;background:#A8C9A2;color:#12160B;border-radius:16px;padding:14px;text-align:center;font-size:14px;font-weight:700">Start this workout</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isProgress }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 18px 128px">
+<div style="font-size:22px;font-weight:700;letter-spacing:-.025em;margin-bottom:16px">Progress</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+<sc-for list="{{ pStats }}" as="s" hint-placeholder-count="4">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:13px">
+<div style="font-size:10px;color:#8A928C;text-transform:uppercase;letter-spacing:.1em">{{ s.k }}</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:500;margin-top:5px;letter-spacing:-.03em;color:{{ s.color }}">{{ s.v }}<span style="font-size:11px;color:#8A928C;margin-left:3px;font-family:'Instrument Sans',sans-serif">{{ s.u }}</span></div>
+</div>
+</sc-for>
+</div>
+
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px;margin-bottom:14px">
+<div style="font-size:13px;font-weight:600;margin-bottom:2px">Volume per session</div>
+<div style="font-size:11.5px;color:#8A928C;margin-bottom:14px">Last {{ volCount }} sessions · {{ unit }}</div>
+<svg viewBox="0 0 320 150" style="width:100%;height:140px;display:block">
+<sc-for list="{{ volBars }}" as="b" hint-placeholder-count="10">
+<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3" fill="#A8C9A2" opacity="{{ b.o }}"></rect>
+</sc-for>
+<sc-for list="{{ volLabels }}" as="l" hint-placeholder-count="4">
+<text x="{{ l.x }}" y="146" fill="#5F665F" font-size="9" text-anchor="middle" font-family="JetBrains Mono">{{ l.t }}</text>
+</sc-for>
+</svg>
+</div>
+
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px;margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">
+<div style="font-size:13px;font-weight:600">RIR at matched load</div>
+<sc-if value="{{ rirDeclining }}" hint-placeholder-val="{{ false }}"><div style="font-size:10px;color:#F2B544;display:flex;align-items:center;gap:3px;font-weight:600"><i style="font-size:14px;color:#F2B544">trending_down</i>Declining</div></sc-if>
+</div>
+<div style="font-size:11.5px;color:#8A928C;margin-bottom:12px;line-height:1.45">{{ rirSub }}</div>
+<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 4px;padding-left:4px">
+<sc-for list="{{ exChips }}" as="c" hint-placeholder-count="5">
+<button onClick="{{ c.pick }}" style="flex:none;padding:6px 11px;border-radius:99px;font-size:11.5px;white-space:nowrap;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }}">{{ c.name }}</button>
+</sc-for>
+</div>
+<sc-if value="{{ hasRir }}" hint-placeholder-val="{{ true }}">
+<svg viewBox="0 0 320 150" style="width:100%;height:140px;display:block">
+<sc-for list="{{ rirGrid }}" as="g" hint-placeholder-count="4"><line x1="0" y1="{{ g.y }}" x2="320" y2="{{ g.y }}" stroke="#272C29" stroke-dasharray="3 4"></line><text x="0" y="{{ g.ty }}" fill="#5F665F" font-size="9" font-family="JetBrains Mono">{{ g.t }}</text></sc-for>
+<polyline points="{{ rirPath }}" fill="none" stroke="{{ rirColor }}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+<sc-for list="{{ rirPts }}" as="p" hint-placeholder-count="6"><circle cx="{{ p.x }}" cy="{{ p.y }}" r="3.5" fill="{{ rirColor }}"></circle><text x="{{ p.x }}" y="146" fill="#5F665F" font-size="9" text-anchor="middle" font-family="JetBrains Mono">{{ p.t }}</text></sc-for>
+</svg>
+</sc-if>
+<sc-if value="{{ noRir }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;color:#5F665F;font-size:12.5px;padding:26px 0">Not enough matched-load sessions yet.</div></sc-if>
+</div>
+
+<sc-if value="{{ hasExcluded }}" hint-placeholder-val="{{ false }}">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
+<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><i style="font-size:16px;color:#F2B544">shield</i>Excluded sessions</div>
+<div style="font-size:11.5px;color:#8A928C;margin:5px 0 11px;line-height:1.5">Dropped from trend analysis. Review occasionally so exclusions stay honest.</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ excludedList }}" as="e" hint-placeholder-count="1">
+<div style="border:1px solid #272C29;border-radius:12px;padding:11px">
+<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span style="font-weight:600">{{ e.reason }}</span><span style="color:#8A928C;font-family:'JetBrains Mono',monospace">{{ e.date }}</span></div>
+<div style="font-size:12px;color:#8A928C;font-style:italic;margin-top:4px">"{{ e.reply }}"</div>
+<button onClick="{{ e.restore }}" style="font-size:11.5px;color:#A8C9A2;margin-top:8px">Put back in analysis</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCoach }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 18px 128px">
+<div style="display:flex;align-items:center;gap:8px"><div style="font-size:22px;font-weight:700;letter-spacing:-.025em">Coach</div></div>
+<div style="font-size:12.5px;color:#8A928C;margin:4px 0 18px;line-height:1.45">Everything below is derived from sets you actually logged.</div>
+
+<sc-if value="{{ hasProgramRec }}" hint-placeholder-val="{{ true }}">
+<div style="border:1px solid rgba(242,181,68,.32);background:rgba(242,181,68,.06);border-radius:20px;padding:16px;margin-bottom:22px">
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><i style="font-size:17px;color:#F2B544">hub</i><div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#F2B544;font-weight:700">Program-level pattern</div></div>
+<div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:7px">{{ programRec.title }}</div>
+<div style="font-size:13px;line-height:1.55;color:#C7CCC6">{{ programRec.body }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin:11px 0">
+<sc-for list="{{ programRec.lifts }}" as="l" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#C7CCC6">{{ l.t }}</div></sc-for>
+</div>
+<div style="background:#101211;border:1px solid #272C29;border-radius:13px;padding:12px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Suggested</div><div style="font-size:13px;font-weight:500;margin-top:4px;line-height:1.5">{{ programRec.action }}</div></div>
+</div>
+</sc-if>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Plateau diagnoses</div>
+<button onClick="{{ scan }}" style="font-size:11.5px;color:#A8C9A2;display:flex;align-items:center;gap:5px;font-weight:600"><i style="font-size:15px">{{ scanIcon }}</i>{{ scanLabel }}</button>
+</div>
+<sc-if value="{{ scanMsg }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid #272C29;background:#171A18;border-radius:12px;padding:10px 12px;font-size:12px;color:#9AA39C;margin-bottom:10px">{{ scanMsgText }}</div></sc-if>
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+<sc-for list="{{ plateaus }}" as="d" hint-placeholder-count="2">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+<div><div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">{{ d.name }}</div><div style="font-size:11px;color:#8A928C;margin-top:3px">{{ d.window }}</div></div>
+<div style="font-size:10px;padding:4px 8px;border-radius:7px;background:rgba(242,181,68,.12);color:#F2B544;font-weight:700;letter-spacing:.06em">{{ d.tag }}</div>
+</div>
+<div style="font-size:13px;line-height:1.55;color:#C7CCC6;margin-top:10px">{{ d.body }}</div>
+<div style="display:flex;flex-direction:column;gap:6px;margin-top:11px">
+<sc-for list="{{ d.actions }}" as="a" hint-placeholder-count="2"><div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.45;color:#C7CCC6"><div style="width:5px;height:5px;border-radius:50%;background:#A8C9A2;margin-top:6px;flex:none"></div>{{ a.t }}</div></sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:13px"><button onClick="{{ d.dismiss }}" style="flex:1;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;color:#8A928C;text-align:center">Not now</button><button onClick="{{ d.accept }}" style="flex:1;background:#1E2220;border:1px solid #313632;border-radius:10px;padding:9px;font-size:12px;font-weight:600;text-align:center">Apply next week</button></div>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{ hasPlans }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:10px">Applied to next session</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+<sc-for list="{{ plansList }}" as="p" hint-placeholder-count="1">
+<div style="border:1px solid rgba(168,201,162,.28);background:rgba(168,201,162,.05);border-radius:16px;padding:13px;display:flex;gap:10px;align-items:flex-start">
+<i style="font-size:17px;color:#A8C9A2;margin-top:1px">event_upcoming</i>
+<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">{{ p.name }}</div><div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:3px">{{ p.text }}</div></div>
+<button onClick="{{ p.undo }}" style="font-size:11.5px;color:#8A928C;flex:none;padding:2px 0 0 4px">Undo</button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Strength goals</div>
+<button onClick="{{ openGoal }}" style="font-size:11.5px;color:#A8C9A2;font-weight:600">+ Add</button>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+<sc-for list="{{ goalsList }}" as="g" hint-placeholder-count="2">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between"><div><div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">{{ g.name }}</div><div style="font-size:11.5px;color:#8A928C;margin-top:3px">Target {{ g.target }} {{ unit }} × {{ g.reps }}</div></div><button onClick="{{ g.remove }}" style="color:#5F665F"><i style="font-size:17px">close</i></button></div>
+<div style="display:flex;align-items:flex-end;gap:10px;margin:13px 0 8px"><div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:500;letter-spacing:-.04em">{{ g.current }}</div><div style="font-size:11.5px;color:#8A928C;padding-bottom:5px">est. 1RM now</div></div>
+<div style="height:6px;border-radius:99px;background:#22272B;background-color:#222724;overflow:hidden"><div style="height:100%;background:#A8C9A2;border-radius:99px;width:{{ g.pct }}"></div></div>
+<sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+<div style="border:1px solid #272C29;border-radius:12px;padding:10px"><div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">Linear pace</div><div style="font-size:13px;font-weight:600;margin-top:3px;font-family:'JetBrains Mono',monospace">{{ g.linear }}</div></div>
+<div style="border:1px solid rgba(168,201,162,.25);background:rgba(168,201,162,.05);border-radius:12px;padding:10px"><div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#A8C9A2">Decay-adjusted</div><div style="font-size:13px;font-weight:600;margin-top:3px;font-family:'JetBrains Mono',monospace">{{ g.decay }}</div></div>
+</div>
+<div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:9px">{{ g.note }}</div>
+</sc-if>
+<sc-if value="{{ g.achieved }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid rgba(168,201,162,.3);background:rgba(168,201,162,.06);border-radius:13px;padding:12px;margin-top:12px;display:flex;gap:9px;align-items:flex-start">
+<i style="font-size:17px;color:#A8C9A2;margin-top:1px">check_circle</i>
+<div><div style="font-size:13px;font-weight:600;color:#A8C9A2">Target reached</div><div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:3px">{{ g.reached }}</div></div>
+</div>
+<div style="display:flex;gap:8px;margin-top:10px">
+<button onClick="{{ g.archive }}" style="flex:1;border:1px solid #272C29;border-radius:11px;padding:10px;text-align:center;font-size:12.5px;color:#8A928C">Archive</button>
+<button onClick="{{ g.next }}" style="flex:2;background:#A8C9A2;color:#12160B;border-radius:11px;padding:10px;text-align:center;font-size:12.5px;font-weight:700">Set next target</button>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:10px">Weekly reports</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ reports }}" as="r" hint-placeholder-count="2">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
+<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#8A928C"><span style="font-family:'JetBrains Mono',monospace">{{ r.range }}</span><span>{{ r.meta }}</span></div>
+<div style="font-size:13px;line-height:1.6;margin-top:9px;color:#C7CCC6">{{ r.recap }}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px">
+<sc-for list="{{ r.stats }}" as="s" hint-placeholder-count="4"><div style="border:1px solid #272C29;border-radius:11px;padding:8px 10px"><div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">{{ s.k }}</div><div style="font-size:13px;font-weight:600;margin-top:2px;font-family:'JetBrains Mono',monospace">{{ s.v }}</div></div></sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSession }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 0 128px">
+<div style="position:sticky;top:0;z-index:20;background:rgba(16,18,17,.92);backdrop-filter:blur(12px);border-bottom:1px solid #1E2220;padding:10px 14px;display:flex;align-items:center;gap:10px">
+<button onClick="{{ backFromSession }}" style="width:36px;height:36px;border-radius:11px;color:#8A928C;display:flex;align-items:center;justify-content:center"><i>arrow_back</i></button>
+<div style="min-width:0"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sdName }}</div><div style="font-size:11px;color:#8A928C">{{ sdDate }}</div></div>
+</div>
+<div style="padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+<sc-for list="{{ sdStats }}" as="s" hint-placeholder-count="3"><div style="background:#171A18;border:1px solid #272C29;border-radius:14px;padding:11px"><div style="font-family:'JetBrains Mono',monospace;font-size:18px;letter-spacing:-.03em">{{ s.v }}</div><div style="font-size:9.5px;color:#8A928C;text-transform:uppercase;letter-spacing:.1em;margin-top:3px">{{ s.k }}</div></div></sc-for>
+</div>
+<sc-if value="{{ sdHasReadiness }}" hint-placeholder-val="{{ false }}">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:9px">Readiness that day</div>
+<div style="display:flex;align-items:baseline;gap:8px"><div style="font-family:'JetBrains Mono',monospace;font-size:26px;color:#A8C9A2;letter-spacing:-.04em">{{ sdReadiness }}</div><div style="font-size:11.5px;color:#8A928C">{{ sdReadinessDetail }}</div></div>
+</div>
+</sc-if>
+<sc-for list="{{ sdBlocks }}" as="b" hint-placeholder-count="3">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:13px">
+<div style="font-size:14px;font-weight:600">{{ b.name }}</div>
+<div style="font-size:11px;color:#8A928C;margin-top:2px">{{ b.mods }}</div>
+<div style="display:flex;flex-direction:column;margin-top:9px">
+<sc-for list="{{ b.sets }}" as="s" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #1E2220;font-family:'JetBrains Mono',monospace;font-size:12.5px"><span style="color:#5F665F">{{ s.n }}</span><span>{{ s.line }}</span></div></sc-for>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ sdHasNotes }}" hint-placeholder-val="{{ false }}">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:6px">Notes</div><div style="font-size:13px;line-height:1.55;color:#C7CCC6">{{ sdNotes }}</div></div>
+</sc-if>
+<button onClick="{{ deleteSession }}" style="width:100%;border:1px solid rgba(242,112,92,.28);border-radius:14px;padding:12px;text-align:center;color:#F2705C;font-size:13px">Delete session</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 18px 128px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+<button onClick="{{ goHome }}" style="width:36px;height:36px;border-radius:11px;border:1px solid #272C29;color:#8A928C;display:flex;align-items:center;justify-content:center"><i>arrow_back</i></button>
+<div style="font-size:22px;font-weight:700;letter-spacing:-.025em">Settings</div>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:8px">Units</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px">
+<sc-for list="{{ unitOpts }}" as="o" hint-placeholder-count="2">
+<button onClick="{{ o.pick }}" style="border-radius:16px;padding:14px;border:1px solid {{ o.bd }};background:{{ o.bg }}"><div style="font-weight:700;font-size:15px;color:{{ o.fg }}">{{ o.label }}</div><div style="font-size:11px;color:#8A928C;margin-top:2px">{{ o.hint }}</div></button>
+</sc-for>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:4px">Diet phase</div>
+<div style="font-size:12px;color:#8A928C;margin-bottom:9px;line-height:1.45">Optional. Lets the coach separate a real plateau from a calorie deficit.</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:22px">
+<sc-for list="{{ dietOpts }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.pick }}" style="border-radius:14px;padding:12px 8px;text-align:center;border:1px solid {{ o.bd }};background:{{ o.bg }}"><div style="font-size:13px;font-weight:600;color:{{ o.fg }}">{{ o.label }}</div><div style="font-size:10px;color:#8A928C;margin-top:2px">{{ o.hint }}</div></button>
+</sc-for>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:9px">Weekly training goals</div>
+<div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px">
+<sc-for list="{{ mgoalRows }}" as="m" hint-placeholder-count="4">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div style="font-size:14px;font-weight:500">{{ m.label }}</div>
+<div style="display:flex;align-items:center;gap:10px">
+<button onClick="{{ m.dec }}" style="width:30px;height:30px;border-radius:9px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C"><i style="font-size:17px">remove</i></button>
+<div style="font-family:'JetBrains Mono',monospace;font-size:15px;width:16px;text-align:center">{{ m.val }}</div>
+<button onClick="{{ m.inc }}" style="width:30px;height:30px;border-radius:9px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C"><i style="font-size:17px">add</i></button>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:9px">Demo data</div>
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px;margin-bottom:22px">
+<div style="font-size:12.5px;color:#8A928C;line-height:1.5;margin-bottom:11px">This prototype stores everything in your browser. Swap between a seeded 8-week history and a clean first-run account.</div>
+<div style="display:flex;gap:8px">
+<button onClick="{{ seedData }}" style="flex:1;border-radius:11px;padding:10px;text-align:center;font-size:12.5px;font-weight:600;border:1px solid {{ seededBd }};background:{{ seededBg }};color:{{ seededFg }}">Seeded history</button>
+<button onClick="{{ clearData }}" style="flex:1;border-radius:11px;padding:10px;text-align:center;font-size:12.5px;font-weight:600;border:1px solid {{ emptyBd }};background:{{ emptyBg }};color:{{ emptyFg }}">Empty account</button>
+</div>
+</div>
+
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:9px">Account</div>
+<div style="background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px">
+<div style="font-size:11px;color:#8A928C">Signed in as</div>
+<div style="font-size:14px;font-weight:500;margin-top:2px">{{ email }}</div>
+<button onClick="{{ logout }}" style="display:flex;align-items:center;gap:7px;color:#F2705C;font-size:13px;margin-top:12px"><i style="font-size:16px">logout</i>Log out</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+<div style="padding:60px 26px 40px;min-height:100%;display:flex;flex-direction:column">
+<img src="assets/logo.png" alt="StrengthAI" style="width:52px;height:52px;border-radius:16px;display:block;object-fit:cover;margin-bottom:26px"></img>
+<div style="font-size:27px;font-weight:700;letter-spacing:-.03em;line-height:1.15">{{ authTitle }}</div>
+<div style="font-size:13.5px;color:#8A928C;margin-top:7px;line-height:1.5">{{ authSub }}</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:26px">
+<sc-for list="{{ authFields }}" as="f" hint-placeholder-count="2">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:14px;padding:11px 14px">
+<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">{{ f.label }}</div>
+<input value="{{ f.value }}" onChange="{{ f.set }}" type="{{ f.type }}" placeholder="{{ f.ph }}" style="width:100%;font-size:15px;margin-top:4px">
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ authMsg }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#A8C9A2;margin-top:12px;line-height:1.5">{{ authMsgText }}</div></sc-if>
+<button onClick="{{ authSubmit }}" style="width:100%;background:#A8C9A2;color:#12160B;border-radius:14px;padding:15px;text-align:center;font-size:14.5px;font-weight:700;margin-top:18px">{{ authCta }}</button>
+<button onClick="{{ authGoogle }}" style="width:100%;border:1px solid #272C29;border-radius:14px;padding:14px;text-align:center;font-size:13.5px;font-weight:600;margin-top:9px;display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:16px;height:16px;border-radius:50%;background:#ECEFEA"></div>Continue with Google</button>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:9px;align-items:center;margin-top:26px">
+<sc-for list="{{ authLinks }}" as="l" hint-placeholder-count="2"><button onClick="{{ l.go }}" style="font-size:12.5px;color:#8A928C;text-align:center">{{ l.pre }}<span style="color:#A8C9A2;font-weight:600">{{ l.t }}</span></button></sc-for>
+</div>
+</div>
+</sc-if>
+
+</div>
+
+<sc-if value="{{ restActive }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:14px;right:14px;bottom:{{ restBottom }};z-index:35;background:#1E2220;border:1px solid #313632;border-radius:16px;padding:11px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.5);animation:ri .22s ease-out">
+<div style="position:relative;width:34px;height:34px;flex:none"><svg viewBox="0 0 36 36" style="width:34px;height:34px;transform:rotate(-90deg)"><circle cx="18" cy="18" r="15" fill="none" stroke="#313632" stroke-width="3"></circle><circle cx="18" cy="18" r="15" fill="none" stroke="#A8C9A2" stroke-width="3" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="{{ restOffset }}"></circle></svg></div>
+<div style="flex:1;min-width:0"><div style="font-family:'JetBrains Mono',monospace;font-size:17px;letter-spacing:-.02em">{{ restLabel }}</div><div style="font-size:10.5px;color:#8A928C;margin-top:1px">Rest · {{ restFor }}</div></div>
+<button onClick="{{ restPlus }}" style="border:1px solid #3A403B;border-radius:9px;padding:7px 9px;font-size:11.5px;font-weight:600">+30s</button>
+<button onClick="{{ restSkip }}" style="color:#8A928C;padding:4px"><i style="font-size:18px">close</i></button>
+</div>
+</sc-if>
+
+<sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;background:rgba(16,18,17,.86);backdrop-filter:blur(16px);border-top:1px solid #1E2220;padding-bottom:{{ navPad }}">
+<div style="display:grid;grid-template-columns:repeat(4,1fr)">
+<sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+<button onClick="{{ n.go }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 9px;color:{{ n.color }}"><i style="font-size:21px;font-variation-settings:'FILL' {{ n.fill }}">{{ n.icon }}</i><div style="font-size:10px;font-weight:600;letter-spacing:.01em">{{ n.label }}</div></button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.6);animation:fi .18s ease-out"></div>
+</sc-if>
+
+<sc-if value="{{ sheetAdd }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;top:{{ addTop }};z-index:55;background:#141715;border-top:1px solid #272C29;border-radius:22px 22px 0 0;animation:su .26s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column">
+<div style="padding:14px 18px 10px;flex:none">
+<div style="width:36px;height:4px;border-radius:99px;background:#313632;margin:0 auto 14px"></div>
+<div style="font-size:17px;font-weight:700;letter-spacing:-.02em">What are you doing?</div>
+<div style="font-size:12.5px;color:#8A928C;margin-top:4px;line-height:1.5">Describe it the way you'd say it out loud — grip, attachment, stance, tempo. The coach resolves it to a trend line.</div>
+<div style="margin-top:13px;background:#101211;border:1px solid {{ inputBd }};border-radius:15px;padding:13px 14px;display:flex;align-items:center;gap:10px">
+<i style="font-size:19px;color:#A8C9A2">auto_awesome</i>
+<input value="{{ q }}" onChange="{{ setQ }}" onKeyDown="{{ qKey }}" placeholder="single arm cuff tricep extension" style="flex:1;min-width:0;font-size:15px">
+<sc-if value="{{ qHasText }}" hint-placeholder-val="{{ false }}"><button onClick="{{ runResolve }}" style="background:#A8C9A2;color:#12160B;border-radius:10px;padding:7px 12px;font-size:12.5px;font-weight:700;flex:none">Resolve</button></sc-if>
+</div>
+</div>
+<div style="flex:1;min-height:0;overflow-y:auto;padding:4px 18px 24px">
+
+<sc-if value="{{ resolving }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid #272C29;background:#171A18;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:11px;margin-top:10px">
+<sc-for list="{{ resolveSteps }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:9px;opacity:{{ s.o }}"><i style="font-size:16px;color:{{ s.c }}">{{ s.icon }}</i><div style="font-size:13px;color:{{ s.tc }}">{{ s.t }}</div></div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasResolution }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid {{ res.bd }};background:{{ res.bg }};border-radius:18px;padding:16px;margin-top:10px;animation:ri .2s ease-out">
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><i style="font-size:15px;color:{{ res.ac }}">{{ res.icon }}</i><div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:{{ res.ac }}">{{ res.status }}</div></div>
+<div style="font-size:17px;font-weight:700;letter-spacing:-.02em">{{ res.name }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px">
+<sc-for list="{{ res.chips }}" as="c" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#C7CCC6">{{ c.t }}</div></sc-for>
+</div>
+<div style="font-size:12.5px;color:#8A928C;margin-top:11px;line-height:1.55">{{ res.trend }}</div>
+<sc-if value="{{ res.hasNote }}" hint-placeholder-val="{{ false }}">
+<div style="background:#101211;border:1px solid #272C29;border-radius:13px;padding:12px;margin-top:11px">
+<div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Why the load will differ</div>
+<div style="font-size:12.5px;line-height:1.55;margin-top:5px;color:#C7CCC6">{{ res.note }}</div>
+</div>
+</sc-if>
+<div style="display:flex;gap:8px;margin-top:14px">
+<sc-if value="{{ res.showAlt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ res.altPick }}" style="flex:1;border:1px solid #313632;border-radius:12px;padding:11px;text-align:center;font-size:12.5px;font-weight:600">{{ res.altLabel }}</button></sc-if>
+<button onClick="{{ res.confirm }}" style="flex:2;background:#A8C9A2;color:#12160B;border-radius:12px;padding:11px;text-align:center;font-size:13px;font-weight:700">{{ res.cta }}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showSuggest }}" hint-placeholder-val="{{ true }}">
+<div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#8A928C;font-weight:600;margin:16px 0 8px">{{ suggestTitle }}</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="5">
+<button onClick="{{ s.pick }}" style="width:100%;background:#171A18;border:1px solid #272C29;border-radius:14px;padding:12px 13px;display:flex;align-items:center;gap:11px">
+<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">{{ s.name }}</div><div style="font-size:11px;color:#8A928C;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.mods }}</div></div>
+<div style="font-size:10.5px;color:#5F665F;font-family:'JetBrains Mono',monospace;flex:none">{{ s.meta }}</div>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetLog }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:55;background:#141715;border-top:1px solid #272C29;border-radius:22px 22px 0 0;animation:su .26s cubic-bezier(.32,.72,0,1);padding:14px 18px 22px">
+<div style="width:36px;height:4px;border-radius:99px;background:#313632;margin:0 auto 14px"></div>
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em">{{ logName }}</div>
+<div style="font-size:11.5px;color:#8A928C;margin-top:4px;font-family:'JetBrains Mono',monospace">{{ logRef }}</div>
+<sc-if value="{{ hasLogPlan }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;color:#A8C9A2;margin-top:7px;display:flex;gap:6px;align-items:flex-start;line-height:1.45"><i style="font-size:14px;color:#A8C9A2;margin-top:1px">event_upcoming</i>{{ logPlan }}</div></sc-if>
+<div style="margin-top:16px;background:#101211;border:1px solid #272C29;border-radius:16px;padding:12px 14px">
+<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C;font-weight:600">Weight</div><div style="font-size:11px;color:#8A928C;text-transform:uppercase">{{ unit }}</div></div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+<button onClick="{{ wDown }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C;flex:none"><i>remove</i></button>
+<input value="{{ setW }}" onChange="{{ setSetW }}" type="number" placeholder="{{ setWPh }}" style="flex:1;min-width:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:30px;letter-spacing:-.04em">
+<button onClick="{{ wUp }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #272C29;display:flex;align-items:center;justify-content:center;color:#8A928C;flex:none"><i>add</i></button>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px">
+<sc-for list="{{ setFields }}" as="f" hint-placeholder-count="3">
+<div style="background:#101211;border:1px solid #272C29;border-radius:14px;padding:10px;min-width:0">
+<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C;font-weight:600;text-align:center">{{ f.label }}</div>
+<div style="display:flex;align-items:center;gap:1px;margin-top:5px;min-width:0">
+<button onClick="{{ f.dec }}" style="width:24px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5F665F;flex:none"><i style="font-size:16px">remove</i></button>
+<input value="{{ f.value }}" onChange="{{ f.set }}" type="number" size="1" placeholder="{{ f.ph }}" style="flex:1;width:100%;min-width:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:19px">
+<button onClick="{{ f.inc }}" style="width:24px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5F665F;flex:none"><i style="font-size:16px">add</i></button>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:14px">
+<button onClick="{{ closeSheet }}" style="flex:1;border:1px solid #272C29;border-radius:14px;padding:14px;text-align:center;font-size:13px;color:#8A928C">Cancel</button>
+<button onClick="{{ saveSet }}" style="flex:2;background:#A8C9A2;color:#12160B;border-radius:14px;padding:14px;text-align:center;font-size:14px;font-weight:700">Log set</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetDay }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:55;background:#141715;border-top:1px solid #272C29;border-radius:22px 22px 0 0;animation:su .26s cubic-bezier(.32,.72,0,1);padding:14px 18px 22px;max-height:76%;overflow-y:auto">
+<div style="width:36px;height:4px;border-radius:99px;background:#313632;margin:0 auto 14px"></div>
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em">{{ dayTitle }}</div>
+<div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+<sc-for list="{{ daySessions }}" as="s" hint-placeholder-count="1">
+<button onClick="{{ s.open }}" style="width:100%;background:#171A18;border:1px solid #272C29;border-radius:16px;padding:14px">
+<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14.5px;font-weight:600">{{ s.name }}</div><i style="font-size:18px;color:#5F665F">chevron_right</i></div>
+<div style="font-size:12px;color:#8A928C;margin-top:4px">{{ s.meta }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px"><sc-for list="{{ s.chips }}" as="c" hint-placeholder-count="3"><div style="font-size:10.5px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#9AA39C">{{ c.t }}</div></sc-for></div>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetReadiness }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:60;background:#101211;display:flex;flex-direction:column;animation:fi .2s ease-out;padding-top:{{ topPad }}">
+<div style="padding:18px 20px 8px;display:flex;align-items:flex-start;justify-content:space-between">
+<div><div style="font-size:20px;font-weight:700;letter-spacing:-.02em">Readiness check</div><div style="font-size:12.5px;color:#8A928C;margin-top:3px">Takes ten seconds. It's what separates a bad day from a real plateau.</div></div>
+<button onClick="{{ skipReadiness }}" style="font-size:13px;color:#8A928C;flex:none;padding:4px 0 0 10px">Skip</button>
+</div>
+<div style="flex:1;min-height:0;overflow-y:auto;padding:14px 20px 20px">
+<div style="border:1px solid rgba(168,201,162,.28);background:rgba(168,201,162,.06);border-radius:20px;padding:20px;text-align:center;margin-bottom:22px">
+<div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#8A928C;font-weight:600">Readiness score</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:44px;color:#A8C9A2;letter-spacing:-.05em;margin-top:4px">{{ rdScore }}</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<sc-for list="{{ rdFields }}" as="f" hint-placeholder-count="4">
+<div>
+<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:500">{{ f.label }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#A8C9A2">{{ f.value }}</div></div>
+<input type="range" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" value="{{ f.value }}" onChange="{{ f.set }}" style="margin-top:8px">
+<div style="display:flex;justify-content:space-between;font-size:10px;color:#5F665F"><span>{{ f.lo }}</span><span>{{ f.hi }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="padding:0 20px 22px"><button onClick="{{ submitReadiness }}" style="width:100%;background:#A8C9A2;color:#12160B;border-radius:16px;padding:15px;text-align:center;font-size:14.5px;font-weight:700">Start training</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetGoal }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:55;background:#141715;border-top:1px solid #272C29;border-radius:22px 22px 0 0;animation:su .26s cubic-bezier(.32,.72,0,1);padding:14px 18px 22px">
+<div style="width:36px;height:4px;border-radius:99px;background:#313632;margin:0 auto 14px"></div>
+<div style="font-size:16px;font-weight:700;letter-spacing:-.02em">New strength goal</div>
+<div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#8A928C;font-weight:600;margin:16px 0 8px">Lift</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ goalPicks }}" as="g" hint-placeholder-count="5"><button onClick="{{ g.pick }}" style="padding:7px 11px;border-radius:99px;font-size:12px;border:1px solid {{ g.bd }};background:{{ g.bg }};color:{{ g.fg }}">{{ g.name }}</button></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+<div style="background:#101211;border:1px solid #272C29;border-radius:14px;padding:11px 13px"><div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">Target ({{ unit }})</div><input value="{{ gTarget }}" onChange="{{ setGTarget }}" type="number" placeholder="225" style="width:100%;font-size:19px;font-family:'JetBrains Mono',monospace;margin-top:3px"></div>
+<div style="background:#101211;border:1px solid #272C29;border-radius:14px;padding:11px 13px"><div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">Reps</div><input value="{{ gReps }}" onChange="{{ setGReps }}" type="number" placeholder="5" style="width:100%;font-size:19px;font-family:'JetBrains Mono',monospace;margin-top:3px"></div>
+</div>
+<button onClick="{{ saveGoal }}" style="width:100%;background:#A8C9A2;color:#12160B;border-radius:14px;padding:14px;text-align:center;font-size:14px;font-weight:700;margin-top:14px">Track this goal</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</div>
+
+<button onClick="{{ toggleFrame }}" style="display:flex;align-items:center;gap:7px;color:#8A928C;font-size:12px;padding:7px 13px;border:1px solid #272C29;border-radius:99px"><i style="font-size:15px">{{ frameIcon }}</i>{{ frameLabel }}</button>
+</div>
+
+<sc-if value="{{ framed }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;width:340px;padding-top:6px;color:#9AA39C;font-size:13px;line-height:1.6">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5F665F;font-weight:600">Rebuild notes</div>
+<div style="font-size:23px;font-weight:700;letter-spacing:-.025em;color:#ECEFEA;margin:8px 0 6px">StrengthAI, rebuilt</div>
+<p style="margin:0 0 22px">Same functionality as the Base44 app, re-designed around the one change you asked for: <span style="color:#ECEFEA">no exercise database</span>. You describe the movement, the coach resolves it to a canonical variant, and trends keep running.</p>
+
+<div style="border-top:1px solid #22262300;border-top-color:#222623;padding-top:16px;margin-bottom:18px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:9px">The resolver</div>
+<p style="margin:0 0 10px">Free text goes through parse → modifier extraction → registry match. Identical descriptions land on the same trend line; a rope-to-cuff swap forks a new one. Try these in the workout screen:</p>
+<div style="display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ demoLines }}" as="d" hint-placeholder-count="4"><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#A8C9A2;background:#141715;border:1px solid #222623;border-radius:8px;padding:7px 9px">{{ d.t }}</div></sc-for>
+</div>
+</div>
+
+<div style="border-top:1px solid #222623;padding-top:16px;margin-bottom:18px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:9px">Your critique, applied</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ critiqueItems }}" as="c" hint-placeholder-count="4">
+<div style="display:flex;gap:9px"><i style="font-size:15px;color:{{ c.color }};margin-top:2px">{{ c.icon }}</i><div><span style="color:#ECEFEA">{{ c.t }}</span> {{ c.d }}</div></div>
+</sc-for>
+</div>
+</div>
+
+<div style="border-top:1px solid #222623;padding-top:16px;margin-bottom:18px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:10px">System</div>
+<div style="display:flex;gap:7px;margin-bottom:11px">
+<sc-for list="{{ swatches }}" as="s" hint-placeholder-count="5"><div style="flex:1"><div style="height:34px;border-radius:8px;background:{{ s.c }};border:1px solid #222623"></div><div style="font-size:9.5px;color:#5F665F;margin-top:5px;font-family:'JetBrains Mono',monospace">{{ s.t }}</div></div></sc-for>
+</div>
+<div style="font-size:12.5px">Instrument Sans for interface · JetBrains Mono for every number you compare</div>
+</div>
+
+<div style="border-top:1px solid #222623;padding-top:16px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:9px">Jump to</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ jumps }}" as="j" hint-placeholder-count="8"><button onClick="{{ j.go }}" style="padding:6px 11px;border-radius:99px;font-size:12px;border:1px solid {{ j.bd }};background:{{ j.bg }};color:{{ j.fg }}">{{ j.t }}</button></sc-for>
+</div>
+<p style="margin:16px 0 0;font-size:12px;color:#5F665F">Backend items from your list that stay engineering work: incremental rolling stats instead of full-history recompute, real error logging in place of silent catches, and unit tests on the plateau/projection math.</p>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1420,&quot;height&quot;:980}}">
+class Component extends DCLogic {
+  KEY = 'strengthai.rebuild.v2';
+  LB = 2.20462262;
+  PARTS = [{ id: 'chest', label: 'Chest' }, { id: 'back', label: 'Back' }, { id: 'arms', label: 'Arms' }, { id: 'legs', label: 'Legs' }];
+
+  BASES = [
+    { k: 'bench press', a: ['bench press', 'bench', 'flat press'], m: 'pectorals', p: 'chest' },
+    { k: 'incline press', a: ['incline press', 'incline bench', 'incline'], m: 'pectorals', p: 'chest' },
+    { k: 'chest fly', a: ['chest fly', 'fly', 'flye', 'pec deck'], m: 'pectorals', p: 'chest' },
+    { k: 'overhead press', a: ['overhead press', 'ohp', 'shoulder press', 'military press'], m: 'delts', p: 'arms' },
+    { k: 'lateral raise', a: ['lateral raise', 'side raise', 'lat raise'], m: 'delts', p: 'arms' },
+    { k: 'rear delt fly', a: ['rear delt fly', 'reverse fly', 'rear delt'], m: 'delts', p: 'arms' },
+    { k: 'face pull', a: ['face pull'], m: 'upper back', p: 'back' },
+    { k: 'tricep extension', a: ['tricep extension', 'triceps extension', 'overhead extension', 'skull crusher', 'skullcrusher'], m: 'triceps', p: 'arms' },
+    { k: 'pushdown', a: ['pushdown', 'press down', 'pressdown'], m: 'triceps', p: 'arms' },
+    { k: 'lat pulldown', a: ['lat pulldown', 'pulldown'], m: 'lats', p: 'back' },
+    { k: 'pull-up', a: ['pull up', 'pullup', 'chin up', 'chinup'], m: 'lats', p: 'back' },
+    { k: 'row', a: ['row', 'barbell row', 'cable row', 'seated row', 't bar row', 'chest supported row'], m: 'upper back', p: 'back' },
+    { k: 'shrug', a: ['shrug'], m: 'traps', p: 'back' },
+    { k: 'curl', a: ['curl', 'bicep curl', 'biceps curl', 'preacher curl', 'hammer curl'], m: 'biceps', p: 'arms' },
+    { k: 'squat', a: ['squat', 'back squat', 'front squat', 'hack squat'], m: 'quads', p: 'legs' },
+    { k: 'leg press', a: ['leg press'], m: 'quads', p: 'legs' },
+    { k: 'leg extension', a: ['leg extension', 'knee extension'], m: 'quads', p: 'legs' },
+    { k: 'romanian deadlift', a: ['romanian deadlift', 'rdl', 'stiff leg deadlift'], m: 'hamstrings', p: 'legs' },
+    { k: 'deadlift', a: ['deadlift'], m: 'hamstrings', p: 'legs' },
+    { k: 'hamstring curl', a: ['hamstring curl', 'leg curl', 'ham curl'], m: 'hamstrings', p: 'legs' },
+    { k: 'hip thrust', a: ['hip thrust', 'glute bridge'], m: 'glutes', p: 'legs' },
+    { k: 'lunge', a: ['lunge', 'split squat', 'bulgarian split squat'], m: 'quads', p: 'legs' },
+    { k: 'calf raise', a: ['calf raise', 'calve raise'], m: 'calves', p: 'legs' },
+    { k: 'dip', a: ['dip', 'dips'], m: 'triceps', p: 'arms' }
+  ];
+
+  MODS = [
+    { k: 'narrow grip', c: 'grip', a: ['narrow grip', 'close grip'], n: 'Close grip shortens the shoulder moment arm and hands the work to the triceps — expect 5-10% under your standard-grip top set at the same effort.' },
+    { k: 'wide grip', c: 'grip', a: ['wide grip'], n: 'Wide grip lengthens the chest moment arm but cuts range of motion. Heavier per rep, shorter stroke.' },
+    { k: 'neutral grip', c: 'grip', a: ['neutral grip', 'hammer grip', 'parallel grip'], n: 'Neutral grip is elbow-friendly and usually runs slightly stronger than pronated.' },
+    { k: 'supinated', c: 'grip', a: ['supinated', 'underhand', 'reverse grip'], n: 'Underhand pulls more biceps into the movement — its own strength curve, not a variation in load.' },
+    { k: 'feet up', c: 'stance', a: ['feet up', 'feet elevated', 'legs up', 'feet on bench'], n: 'No leg drive and a narrower base of support. The pattern looks identical but the load ceiling is lower — comparing it to a standard bench would read as a false plateau.' },
+    { k: 'sumo', c: 'stance', a: ['sumo'], n: 'Wider stance, shorter bar path, more hip-dominant.' },
+    { k: 'staggered', c: 'stance', a: ['staggered', 'b stance'], n: 'One side does the work while the trail leg stabilizes — counts as unilateral volume.' },
+    { k: 'cuff', c: 'attachment', a: ['cuff', 'ankle cuff', 'wrist cuff'], n: 'A cuff bypasses the grip and moves the load point higher up the forearm. Shorter moment arm at the elbow, so the stack number runs heavier than a rope for the same triceps tension.' },
+    { k: 'rope', c: 'attachment', a: ['rope'], n: 'Rope allows end-range pronation and a longer effective moment arm at lockout — lighter stack for the same effort than a bar or cuff.' },
+    { k: 'straight bar', c: 'attachment', a: ['straight bar', 'bar attachment'], n: 'Fixed pronation and a locked hand path — usually the heaviest of the pushdown attachments.' },
+    { k: 'ez bar', c: 'attachment', a: ['ez bar', 'ezbar', 'ez'], n: 'Semi-supinated wrist angle, slightly less biceps peak tension than a straight bar.' },
+    { k: 'v-bar', c: 'attachment', a: ['v bar', 'vbar'], n: '' },
+    { k: 'single handle', c: 'attachment', a: ['single handle', 'd handle', 'stirrup'], n: '' },
+    { k: 'single arm', c: 'side', a: ['single arm', 'one arm', 'unilateral'], n: 'One arm at a time: one fewer joint chain to stabilize and no bilateral deficit, so per-side load is not simply half the two-arm number.' },
+    { k: 'single leg', c: 'side', a: ['single leg', 'one leg'], n: 'Per-side load with a much higher stability cost.' },
+    { k: 'dumbbell', c: 'implement', a: ['dumbbell', 'dumbbells', 'db'], n: 'Per-hand load with a higher stabilizer demand than the barbell equivalent.' },
+    { k: 'barbell', c: 'implement', a: ['barbell', 'bb'], n: '' },
+    { k: 'cable', c: 'implement', a: ['cable'], n: 'Constant tension across the range — stack numbers are not comparable to free weight.' },
+    { k: 'machine', c: 'implement', a: ['machine', 'selectorized'], n: 'Fixed path; the machine carries the stability, so loads run higher than the free-weight version.' },
+    { k: 'smith', c: 'implement', a: ['smith machine', 'smith'], n: 'Fixed bar path removes the balance requirement.' },
+    { k: 'kettlebell', c: 'implement', a: ['kettlebell', 'kb'], n: '' },
+    { k: 'seated', c: 'angle', a: ['seated'], n: '' },
+    { k: 'standing', c: 'angle', a: ['standing'], n: '' },
+    { k: 'chest supported', c: 'angle', a: ['chest supported'], n: 'Chest support removes torso fatigue from the equation — pure back stimulus, higher usable load.' },
+    { k: 'bent over', c: 'angle', a: ['bent over'], n: '' },
+    { k: 'lying', c: 'angle', a: ['lying', 'prone'], n: '' },
+    { k: 'high to low', c: 'angle', a: ['high to low'], n: 'Cable line from above biases the lower/sternal fibres.' },
+    { k: 'low to high', c: 'angle', a: ['low to high'], n: 'Cable line from below biases the clavicular fibres.' },
+    { k: 'paused', c: 'tempo', a: ['paused', 'pause'], n: 'A pause kills the stretch reflex. Same weight, different stimulus — it gets its own trend line on purpose.' },
+    { k: 'slow eccentric', c: 'tempo', a: ['slow eccentric', 'tempo', 'controlled eccentric'], n: 'Longer time under tension at a lower absolute load.' },
+    { k: 'deficit', c: 'rom', a: ['deficit'], n: 'Extra range at the bottom — expect a lower load than the standard version.' },
+    { k: 'pin', c: 'rom', a: ['pins', 'rack pull', 'pin press'], n: 'Dead-stop from pins removes elastic energy.' },
+    { k: 'partial', c: 'rom', a: ['partial', 'partials', 'lengthened partial'], n: 'Shortened range, higher load — not comparable to full-ROM sets.' },
+    { k: 'banded', c: 'load', a: ['banded', 'with bands', 'bands'], n: 'Accommodating resistance changes the strength curve; bar weight alone understates the top-end load.' },
+    { k: 'chains', c: 'load', a: ['chains'], n: '' }
+  ];
+
+  MODORDER = ['side', 'implement', 'attachment', 'grip', 'stance', 'angle', 'tempo', 'rom', 'load'];
+
+  state = {
+    screen: 'home', sheet: null, framed: true, store: this.loadStore(),
+    sessionId: null, tplId: null, logEx: null, day: null, cursor: null,
+    q: '', resolving: 0, resolution: null,
+    setW: '', setR: '', setRir: '', setRpe: '',
+    restEnd: 0, restLen: 150, restFor: '', now: Date.now(),
+    selEx: null, scanning: false, scanMsg: null,
+    replyFor: null, replyText: '', noteScan: null,
+    wName: null, wNotes: null, tplName: null,
+    gv: null, gTarget: '', gReps: '',
+    rd: { sleep: 7, energy: 6, soreness: 3, stress: 3 },
+    authEmail: null, authPw: '', authMsg: null
+  };
+
+  // ---------- utils ----------
+  uid() { return 'x' + Math.random().toString(36).slice(2, 9); }
+  rng(seed) { let t = seed; return () => { t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; }
+  clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  toKg(lb) { return Math.round((lb / this.LB) * 100) / 100; }
+  round5(n) { return Math.round(n * 2) / 2; }
+  title(s) { return String(s || '').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
+  ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  e1rm(w, r) { return (w || 0) * (1 + (r || 0) / 30); }
+
+  dw(kg) { const u = this.state && this.state.store ? this.state.store.unit : 'lb'; const v = u === 'lb' ? kg * this.LB : kg; return Math.round(v * 10) / 10; }
+  fromInput(v) { const u = this.state.store.unit; const n = parseFloat(v) || 0; return u === 'lb' ? n / this.LB : n; }
+
+  vName(v) { return v ? this.title(v.base) : ''; }
+  vMods(v) { return v && v.mods && v.mods.length ? v.mods.join(' · ') : 'standard'; }
+  vById(id) { return (this.state.store.variants || []).find(v => v.id === id); }
+
+  // ---------- store ----------
+  emptyStore() {
+    return { v: 1, seeded: false, unit: 'lb', diet: null, email: 'alex@strengthai.app', variants: [], sessions: [], sets: [], readiness: [], flags: [], templates: [], mgoals: [{ part: 'chest', target: 2 }, { part: 'back', target: 2 }, { part: 'arms', target: 2 }, { part: 'legs', target: 2 }], goals: [], reports: [], recs: [], plans: [] };
+  }
+
+  loadStore() {
+    try { const raw = window.localStorage.getItem('strengthai.rebuild.v2'); if (raw) { const s = JSON.parse(raw); if (s && s.v === 1) return s; } } catch (e) {}
+    return this.seedStore();
+  }
+  persist(s) { try { window.localStorage.setItem(this.KEY, JSON.stringify(s)); } catch (e) {} }
+  mut(fn) { this.setState(st => { const s = JSON.parse(JSON.stringify(st.store)); fn(s); this.persist(s); return { store: s }; }); }
+
+  seedStore() {
+    const S = this.emptyStore();
+    S.seeded = true;
+    const R = this.rng(88213);
+    const rows = [
+      ['bench', 'bench press', ['feet up', 'narrow grip'], 'pectorals', 'chest', 185, 8, 1, 0],
+      ['incdb', 'incline press', ['dumbbell'], 'pectorals', 'chest', 65, 10, 0, 2.5],
+      ['fly', 'chest fly', ['cable', 'high to low'], 'pectorals', 'chest', 30, 12, 0, 2.5],
+      ['cuffext', 'tricep extension', ['single arm', 'cable', 'cuff'], 'triceps', 'arms', 25, 12, 0, 2.5],
+      ['lat', 'lateral raise', ['dumbbell'], 'delts', 'arms', 20, 15, 0, 2.5],
+      ['pull', 'lat pulldown', ['neutral grip'], 'lats', 'back', 150, 10, 1, 0],
+      ['row', 'row', ['chest supported', 'machine'], 'upper back', 'back', 140, 10, 0, 5],
+      ['fp', 'face pull', ['rope'], 'upper back', 'back', 40, 15, 0, 2.5],
+      ['curl', 'curl', ['ez bar'], 'biceps', 'arms', 65, 10, 0, 2.5],
+      ['pd', 'pushdown', ['rope'], 'triceps', 'arms', 60, 12, 0, 5],
+      ['sq', 'squat', ['barbell'], 'quads', 'legs', 245, 5, 1, 0],
+      ['lp', 'leg press', ['machine'], 'quads', 'legs', 360, 10, 0, 10],
+      ['rdl', 'romanian deadlift', ['barbell'], 'hamstrings', 'legs', 205, 8, 0, 5],
+      ['hc', 'hamstring curl', ['seated', 'machine'], 'hamstrings', 'legs', 110, 12, 0, 5],
+      ['calf', 'calf raise', ['standing', 'machine'], 'calves', 'legs', 180, 15, 0, 10]
+    ];
+    const meta = {};
+    rows.forEach(r => { meta[r[0]] = { start: r[5], reps: r[6], flat: r[7], inc: r[8] }; S.variants.push({ id: r[0], base: r[1], mods: r[2], m: r[3], p: r[4], uses: 0, created: Date.now() }); });
+    const split = { 'Push A': ['bench', 'incdb', 'fly', 'cuffext', 'lat'], 'Pull A': ['pull', 'row', 'fp', 'curl', 'pd'], 'Legs A': ['sq', 'lp', 'rdl', 'hc', 'calf'] };
+    const names = Object.keys(split);
+    const today = new Date(); today.setHours(18, 30, 0, 0);
+    const sun = new Date(today); sun.setDate(today.getDate() - today.getDay()); sun.setHours(18, 30, 0, 0);
+
+    for (let w = 0; w < 8; w++) {
+      names.forEach((nm, si) => {
+        const i = w * 3 + si;
+        const d = new Date(today); d.setDate(today.getDate() - Math.round((23 - i) * 2.35));
+        const sid = 's' + w + si;
+        const ids = split[nm];
+        S.sessions.push({ id: sid, name: nm, date: d.toISOString(), status: 'completed', notes: '', exerciseIds: ids.slice(), endedAt: new Date(d.getTime() + 3900000).toISOString() });
+        ids.forEach(vid => {
+          const M = meta[vid];
+          const lb = M.flat ? M.start : M.start + M.inc * Math.floor(w / 2);
+          const baseRir = M.flat ? this.clamp(3 - w * 0.28, 0.5, 3.5) : this.clamp(2.5 + (R() - 0.5), 1, 3.5);
+          for (let n = 0; n < 3; n++) {
+            const rir = this.round5(this.clamp(baseRir - n * 0.4 + (R() - 0.5) * 0.3, 0, 5));
+            S.sets.push({ id: this.uid(), sessionId: sid, variantId: vid, weight: this.toKg(lb), reps: n === 2 ? M.reps - 1 : M.reps, rir: rir, rpe: this.round5(10 - rir), n: n + 1, ts: new Date(d.getTime() + n * 180000).toISOString() });
+          }
+        });
+        const energy = this.clamp(8 - w * 0.2 + (R() - 0.5), 3, 10);
+        const sleep = this.clamp(7.6 - w * 0.13 + (R() - 0.5) * 1.1, 4, 9.5);
+        const sore = this.clamp(2.4 + w * 0.24 + (R() - 0.5), 0, 9);
+        const stress = this.clamp(3 + w * 0.22 + (R() - 0.5), 0, 9);
+        const score = Math.round(((Math.min(sleep / 7, 1) * 10 + energy + (10 - sore) + (10 - stress)) / 4) * 10) / 10;
+        S.readiness.push({ id: this.uid(), sessionId: sid, sleep: Math.round(sleep * 10) / 10, energy: Math.round(energy * 10) / 10, soreness: Math.round(sore * 10) / 10, stress: Math.round(stress * 10) / 10, score: score });
+      });
+    }
+    S.variants.forEach(v => { v.uses = S.sessions.filter(s => s.exerciseIds.indexOf(v.id) >= 0).length; });
+
+    const benchSets = S.sets.filter(s => s.variantId === 'bench' && s.n === 1);
+    const firstRir = benchSets[0] ? benchSets[0].rir : 3;
+    const lastRir = benchSets[benchSets.length - 1] ? benchSets[benchSets.length - 1].rir : 1;
+    const lastPush = S.sessions.filter(s => s.name === 'Push A').slice(-1)[0];
+    S.flags.push({
+      id: 'f1', sessionId: lastPush ? lastPush.id : null, type: 'rpe_trend', status: 'pending', medical: false, variants: ['bench'],
+      explanation: 'Actual RIR on your bench has fallen from ' + firstRir + ' to ' + lastRir + ' across ' + benchSets.length + ' sessions at the same 185 lb x 8. Same load, noticeably more effort.',
+      recommendation: 'Run one session at 165 lb x 8 and re-check RIR before you push the top set again.',
+      reasoning: 'Readiness dropped over the same window, so this reads as accumulated fatigue rather than one bad night.'
+    });
+    const legsOld = S.sessions.filter(s => s.name === 'Legs A')[4];
+    if (legsOld) S.flags.push({ id: 'f2', sessionId: legsOld.id, type: 'readiness_trend', status: 'excluded', medical: false, variants: ['sq'], exclusionReason: 'Illness — fever, two days off work', reply: 'I had a fever that whole week, squats were never going to move', aiResponse: 'Agreed, that is situational. I have dropped the session from trend analysis so it will not drag your squat baseline down.', explanation: '', recommendation: '', reasoning: '' });
+
+    S.templates = names.map((nm, i) => ({ id: 't' + i, name: nm, variantIds: split[nm].slice() }));
+    S.goals = [{ id: 'g1', variantId: 'bench', target: 225, reps: 5, status: 'active' }, { id: 'g2', variantId: 'sq', target: 315, reps: 3, status: 'active' }];
+    S.recs = [
+      { id: 'r1', kind: 'program', status: 'open' },
+      { id: 'r2', kind: 'plateau', variantId: 'bench', status: 'open' },
+      { id: 'r3', kind: 'plateau', variantId: 'sq', status: 'open' },
+      { id: 'r4', kind: 'plateau', variantId: 'pull', status: 'open' }
+    ];
+    return S;
+  }
+
+  // ---------- resolver ----------
+  norm(t) { return ' ' + String(t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim() + ' '; }
+  hasAll(t, a) { return a.split(' ').every(w => t.indexOf(' ' + w + ' ') >= 0 || t.indexOf(' ' + w + 's ') >= 0); }
+
+  parse(text) {
+    const t = this.norm(text);
+    let base = null, bl = 0;
+    this.BASES.forEach(b => b.a.forEach(a => { if (this.hasAll(t, a) && a.length > bl) { bl = a.length; base = b; } }));
+    const bw = base ? base.k.split(' ') : [];
+    const mods = [];
+    this.MODS.forEach(m => { if (m.a.some(a => this.hasAll(t, a)) && !m.k.split(' ').every(w => bw.indexOf(w) >= 0)) mods.push(m); });
+    mods.sort((a, b) => this.MODORDER.indexOf(a.c) - this.MODORDER.indexOf(b.c));
+    return { base: base, mods: mods };
+  }
+
+  resolveText(text) {
+    const p = this.parse(text);
+    const keys = p.mods.map(m => m.k);
+    if (!p.base) return { ok: false, raw: text };
+    let best = null, bestScore = -1;
+    (this.state.store.variants || []).filter(v => v.base === p.base.k).forEach(v => {
+      const A = v.mods || [], B = keys;
+      const inter = B.filter(x => A.indexOf(x) >= 0).length;
+      const denom = Math.max(A.length, B.length);
+      const sc = denom === 0 ? 1 : inter / denom;
+      if (sc > bestScore) { bestScore = sc; best = v; }
+    });
+    let status = 'new';
+    if (best && bestScore >= 0.75) status = 'match';
+    else if (best && bestScore >= 0.3) status = 'close';
+    const note = p.mods.map(m => m.n).filter(Boolean).slice(0, 2).join(' ');
+    return { ok: true, base: p.base, mods: keys, modObjs: p.mods, status: status, match: best, score: bestScore, note: note };
+  }
+
+  classifyNote(text) {
+    const t = String(text || '').toLowerCase();
+    if (!t.trim()) return null;
+    const benign = [/hurt so good/, /good pain/, /sore in a good way/, /pump was (insane|crazy)/, /burn(ed)? like hell/, /crushed it/];
+    if (benign.some(r => r.test(t))) return { risk: false, label: 'Read as effort language, not injury', detail: 'Keyword matching would have flagged this on "hurt". Classified as soreness/effort — no advisory raised.' };
+    const explicit = [/\bpain\b/, /\btweak(ed)?\b/, /\bstrain(ed)?\b/, /\bpinch(ed|ing)?\b/, /\bsharp\b/, /\bnumb(ness)?\b/, /\btingl/, /\bpopped\b/, /\bimpinge/];
+    const subtle = [/(shoulder|knee|elbow|back|hip|wrist|neck|lat|pec)[^.]{0,24}(been off|not right|feels? weird|feels? wrong|acting up|cranky|angry|bugging me|off lately)/, /something (felt|feels) (wrong|off)/, /did ?n.?t feel right/, /had to (stop|rack|bail)/, /could ?n.?t finish/];
+    if (explicit.some(r => r.test(t))) return { risk: true, label: 'Health advisory raised', detail: 'Explicit discomfort language. The coach will hold back load recommendations on the affected pattern until you confirm it resolved.' };
+    if (subtle.some(r => r.test(t))) return { risk: true, label: 'Health advisory raised', detail: 'No keyword here — this is the class of phrasing the old keyword list missed. Flagged conservatively; you can dismiss it in one tap.' };
+    return { risk: false, label: 'Nothing clinical detected', detail: 'Logged as context for the weekly report.' };
+  }
+
+  // ---------- derived ----------
+  setsOf(sid) { return (this.state.store.sets || []).filter(s => s.sessionId === sid); }
+  activeSession() { return (this.state.store.sessions || []).find(s => s.status === 'active'); }
+  curSession() { const st = this.state.store; return (st.sessions || []).find(s => s.id === this.state.sessionId); }
+
+  matchedPoints(vid) {
+    const st = this.state.store;
+    const excluded = new Set((st.flags || []).filter(f => f.status === 'excluded').map(f => f.sessionId));
+    const ex = (st.sets || []).filter(s => s.variantId === vid && s.rir != null && !excluded.has(s.sessionId));
+    if (!ex.length) return [];
+    const cnt = {};
+    ex.forEach(s => { const k = s.weight + '|' + s.reps; cnt[k] = (cnt[k] || 0) + 1; });
+    let mk = null, mc = 0;
+    Object.keys(cnt).forEach(k => { if (cnt[k] > mc) { mc = cnt[k]; mk = k; } });
+    if (!mk || mc < 2) return [];
+    const bys = {};
+    ex.forEach(s => { if (s.weight + '|' + s.reps === mk) (bys[s.sessionId] = bys[s.sessionId] || []).push(s); });
+    const dates = {}; (st.sessions || []).forEach(s => dates[s.id] = s.date);
+    return Object.keys(bys).sort((a, b) => new Date(dates[a] || 0) - new Date(dates[b] || 0)).map(sid => {
+      const ss = bys[sid];
+      return { sid: sid, date: dates[sid], rir: Math.round((ss.reduce((a, s) => a + s.rir, 0) / ss.length) * 10) / 10 };
+    });
+  }
+
+  weekRange() {
+    const now = new Date(); const start = new Date(now); start.setHours(0, 0, 0, 0); start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start); end.setDate(start.getDate() + 7); return [start, end];
+  }
+
+  // ---------- lifecycle ----------
+  componentDidMount() {
+    this._t = setInterval(() => { if (this.state.restEnd || this.state.resolving) this.setState({ now: Date.now() }); }, 250);
+    this._c = setInterval(() => this.setState({ tick: Date.now() }), 30000);
+  }
+  componentWillUnmount() { clearInterval(this._t); clearInterval(this._c); }
+
+  go(screen) { this.setState({ screen: screen, sheet: null }); }
+
+  startWorkout(templateId) {
+    const st = this.state.store;
+    const act = (st.sessions || []).find(s => s.status === 'active');
+    if (act) { this.setState({ screen: 'workout', sessionId: act.id, sheet: null }); return; }
+    const tpl = templateId ? (st.templates || []).find(t => t.id === templateId) : null;
+    const id = this.uid();
+    this.mut(s => { s.sessions.unshift({ id: id, name: tpl ? tpl.name : '', date: new Date().toISOString(), status: 'active', notes: '', exerciseIds: tpl ? tpl.variantIds.slice() : [], templateId: templateId || null }); });
+    this.setState({ screen: 'workout', sessionId: id, sheet: 'readiness', rd: { sleep: 7, energy: 6, soreness: 3, stress: 3 } });
+  }
+
+  addVariantFromResolution(res, target) {
+    let vid;
+    if (res.status === 'match' || res.useMatch) { vid = res.match.id; }
+    else {
+      vid = this.uid();
+      const nv = { id: vid, base: res.base.k, mods: res.mods, m: res.base.m, p: res.base.p, uses: 0, created: Date.now() };
+      this.mut(s => { s.variants.push(nv); });
+    }
+    const sid = this.state.sessionId, tid = this.state.tplId;
+    this.mut(s => {
+      if (target === 'tpl') { const t = s.templates.find(x => x.id === tid); if (t && t.variantIds.indexOf(vid) < 0) t.variantIds.push(vid); }
+      else { const ss = s.sessions.find(x => x.id === sid); if (ss && ss.exerciseIds.indexOf(vid) < 0) ss.exerciseIds.push(vid); }
+      const v = s.variants.find(x => x.id === vid); if (v) v.uses = (v.uses || 0) + 1;
+    });
+    this.setState({ sheet: null, q: '', resolution: null, resolving: 0 });
+  }
+
+  renderVals() {
+    const st = this.state, S = st.store, u = S.unit;
+    const V = {};
+    const framed = st.framed !== false;
+    const accent = '#A8C9A2';
+    V.framed = framed;
+    V.canvasPad = framed ? '46px 40px 60px' : '0';
+    V.dw = framed ? '402px' : '440px';
+    V.dh = framed ? '858px' : '100vh';
+    V.dr = framed ? '46px' : '0px';
+    V.dBorder = framed ? '1px solid #2A2F2C' : '1px solid #1E2220';
+    V.topPad = framed ? '52px' : '14px';
+    V.navPad = framed ? '18px' : '8px';
+    V.frameIcon = framed ? 'fullscreen' : 'fullscreen_exit';
+    V.frameLabel = framed ? 'Open full screen' : 'Back to overview';
+    V.toggleFrame = () => this.setState({ framed: !framed });
+    const now = new Date();
+    V.clock = now.getHours() % 12 === 0 ? '12:' + String(now.getMinutes()).padStart(2, '0') : (now.getHours() % 12) + ':' + String(now.getMinutes()).padStart(2, '0');
+    V.unit = u;
+    V.email = S.email;
+
+    const sc = st.screen;
+    V.isHome = sc === 'home'; V.isWorkout = sc === 'workout'; V.isWorkouts = sc === 'workouts'; V.isTemplate = sc === 'template';
+    V.isProgress = sc === 'progress'; V.isCoach = sc === 'coach'; V.isSession = sc === 'session'; V.isSettings = sc === 'settings';
+    V.isAuth = sc === 'login' || sc === 'register' || sc === 'forgot' || sc === 'reset';
+    V.showNav = ['home', 'workout', 'workouts', 'progress', 'coach'].indexOf(sc) >= 0;
+    V.goHome = () => this.go('home'); V.goSettings = () => this.go('settings'); V.goWorkouts = () => this.go('workouts');
+
+    V.navItems = [['home', 'Train', 'home'], ['workouts', 'Workouts', 'exercise'], ['progress', 'Progress', 'monitoring'], ['coach', 'Coach', 'auto_awesome']].map(n => {
+      const on = sc === n[0] || (n[0] === 'home' && sc === 'workout');
+      return { key: n[0], label: n[1], icon: n[2], color: on ? accent : '#5F665F', fill: on ? 1 : 0, go: () => this.go(n[0]) };
+    });
+
+    const sh = st.sheet;
+    V.sheetAdd = sh === 'add' || sh === 'addtpl'; V.sheetLog = sh === 'log'; V.sheetDay = sh === 'day'; V.sheetReadiness = sh === 'readiness'; V.sheetGoal = sh === 'goal';
+    V.sheetOpen = !!sh && sh !== 'readiness';
+    V.closeSheet = () => this.setState({ sheet: null, resolution: null, resolving: 0, q: '' });
+    V.addTop = '90px';
+
+    // rest timer
+    const left = st.restEnd ? Math.max(0, Math.ceil((st.restEnd - Date.now()) / 1000)) : 0;
+    V.restActive = !!st.restEnd && left > 0;
+    V.restLabel = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    V.restFor = st.restFor || '';
+    V.restOffset = 94.2 * (1 - left / (st.restLen || 150));
+    V.restBottom = V.showNav ? (framed ? '92px' : '78px') : '18px';
+    V.restPlus = () => this.setState({ restEnd: st.restEnd + 30000, restLen: (st.restLen || 150) + 30 });
+    V.restSkip = () => this.setState({ restEnd: 0 });
+
+    // ---------- HOME ----------
+    if (V.isHome) {
+      const h = now.getHours();
+      V.greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+      const act = this.activeSession();
+      V.startTitle = act ? 'Resume workout' : 'Start workout';
+      V.startSub = act ? (act.name || 'Session in progress') : 'Describe it, log it, done';
+      V.startWorkout = () => this.startWorkout(null);
+      const [ws, we] = this.weekRange();
+      const wkSess = (S.sessions || []).filter(s => { const d = new Date(s.date); return d >= ws && d < we; });
+      const wkSetIds = new Set(wkSess.map(s => s.id));
+      const wkSets = (S.sets || []).filter(s => wkSetIds.has(s.sessionId));
+      const vol = wkSets.reduce((a, s) => a + s.weight * s.reps, 0);
+      V.weekStats = [
+        { k: 'Sessions', v: wkSess.length, u: '' },
+        { k: 'Sets', v: wkSets.length, u: '' },
+        { k: 'Volume', v: Math.round(this.dw(vol) / 1000 * 10) / 10 + 'k', u: u }
+      ];
+      V.weekRange = ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + new Date(we.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const cur = st.cursor ? new Date(st.cursor) : new Date();
+      V.calMonth = cur.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      V.prevMonth = () => this.setState({ cursor: new Date(cur.getFullYear(), cur.getMonth() - 1, 1).toISOString() });
+      V.nextMonth = () => this.setState({ cursor: new Date(cur.getFullYear(), cur.getMonth() + 1, 1).toISOString() });
+      V.thisMonth = () => this.setState({ cursor: null });
+      V.weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => ({ l: l, i: i }));
+      const days = {};
+      (S.sessions || []).forEach(s => { const k = this.ymd(new Date(s.date)); (days[k] = days[k] || []).push(s); });
+      const first = new Date(cur.getFullYear(), cur.getMonth(), 1);
+      const cells = [];
+      for (let i = first.getDay() - 1; i >= 0; i--) cells.push({ d: new Date(cur.getFullYear(), cur.getMonth(), -i), out: true });
+      const dim = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+      for (let d = 1; d <= dim; d++) cells.push({ d: new Date(cur.getFullYear(), cur.getMonth(), d), out: false });
+      while (cells.length % 7 !== 0) { const l = cells[cells.length - 1].d; cells.push({ d: new Date(l.getFullYear(), l.getMonth(), l.getDate() + 1), out: true }); }
+      const tk = this.ymd(now);
+      V.calCells = cells.map(c => {
+        const k = this.ymd(c.d), has = !!days[k] && !c.out, isT = k === tk;
+        return {
+          n: c.d.getDate(), bg: has ? 'rgba(168,201,162,.12)' : 'transparent', fg: c.out ? '#33393400' : has ? '#ECEFEA' : '#6E756E',
+          ring: isT ? '1px solid rgba(168,201,162,.55)' : '1px solid transparent', dot: has ? accent : 'transparent',
+          pick: has ? () => this.setState({ sheet: 'day', day: k }) : () => {}
+        };
+      });
+      const counts = {};
+      wkSess.forEach(s => { const parts = new Set(); (s.exerciseIds || []).forEach(vid => { const v = this.vById(vid); if (v) parts.add(v.p); }); parts.forEach(p => counts[p] = (counts[p] || 0) + 1); });
+      const rows = (S.mgoals || []).filter(g => g.target > 0);
+      V.hasGoals = rows.length > 0; V.noGoals = rows.length === 0;
+      V.goalRows = rows.map(g => {
+        const done = counts[g.part] || 0, met = done >= g.target;
+        return { label: (this.PARTS.find(p => p.id === g.part) || {}).label || g.part, count: done + '/' + g.target, pct: Math.min(100, Math.round(done / g.target * 100)) + '%', color: met ? accent : '#4C8E96' };
+      });
+    }
+
+    // ---------- DAY SHEET ----------
+    if (V.sheetDay) {
+      const list = (S.sessions || []).filter(s => this.ymd(new Date(s.date)) === st.day);
+      V.dayTitle = st.day ? new Date(st.day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+      V.daySessions = list.map(s => {
+        const ss = this.setsOf(s.id);
+        const vol = Math.round(this.dw(ss.reduce((a, x) => a + x.weight * x.reps, 0)));
+        return {
+          name: s.name || 'Workout', meta: ss.length + ' sets · ' + vol.toLocaleString() + ' ' + u,
+          chips: (s.exerciseIds || []).slice(0, 4).map(vid => ({ t: this.vName(this.vById(vid)) })),
+          open: () => this.setState({ screen: 'session', sessionId: s.id, sheet: null })
+        };
+      });
+    }
+
+    // ---------- WORKOUT ----------
+    if (V.isWorkout) {
+      const sess = this.curSession() || this.activeSession();
+      if (sess) {
+        V.wTitle = sess.name || 'Workout';
+        V.wDate = new Date(sess.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        V.wName = st.wName != null ? st.wName : (sess.name || '');
+        V.setWName = e => { const v = e.target.value; this.setState({ wName: v }); this.mut(s => { const x = s.sessions.find(y => y.id === sess.id); if (x) x.name = v; }); };
+        V.wNotes = st.wNotes != null ? st.wNotes : (sess.notes || '');
+        V.setWNotes = e => {
+          const v = e.target.value;
+          this.setState({ wNotes: v, noteScan: this.classifyNote(v) });
+          this.mut(s => { const x = s.sessions.find(y => y.id === sess.id); if (x) x.notes = v; });
+        };
+        V.noteExamples = ['my shoulder\u2019s been off all week', 'that last set hurt so good'].map(t => ({ t: '"' + t + '"', use: () => { this.setState({ wNotes: t, noteScan: this.classifyNote(t) }); this.mut(s => { const x = s.sessions.find(y => y.id === sess.id); if (x) x.notes = t; }); } }));
+        const nsc = st.noteScan;
+        V.hasNoteScan = !!nsc;
+        if (nsc) { V.noteScanLabel = nsc.label; V.noteScanDetail = nsc.detail; V.noteScanColor = nsc.risk ? '#F2B544' : '#4C8E96'; V.noteScanIcon = nsc.risk ? 'health_and_safety' : 'check_circle'; }
+
+        const sSets = this.setsOf(sess.id);
+        V.wBlocks = (sess.exerciseIds || []).map((vid, idx) => {
+          const v = this.vById(vid) || {};
+          const list = sSets.filter(x => x.variantId === vid).sort((a, b) => new Date(a.ts) - new Date(b.ts));
+          const plan = (S.plans || []).find(p => p.variantId === vid);
+          return {
+            id: vid, name: this.vName(v), hasSets: list.length > 0,
+            hasPlan: !!plan, planText: plan ? 'Coach plan · top set ' + Math.round(this.dw(plan.load)) + ' ' + u + ' @ RIR 3' : '',
+            chips: (v.mods || []).map(m => ({ t: m })).concat([{ t: v.m || '' }]).filter(c => c.t),
+            sets: list.map((s, i) => ({ n: i + 1, w: this.dw(s.weight), reps: s.reps, rir: s.rir, rpe: s.rpe, unit: u, rirColor: s.rir <= 1 ? '#F2B544' : '#ECEFEA', del: () => this.mut(x => { x.sets = x.sets.filter(y => y.id !== s.id); }) })),
+            add: () => this.setState({ sheet: 'log', logEx: vid, setW: '', setR: '', setRir: '', setRpe: '' }),
+            remove: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss) ss.exerciseIds = ss.exerciseIds.filter(e => e !== vid); x.sets = x.sets.filter(y => !(y.sessionId === sess.id && y.variantId === vid)); }),
+            up: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss && idx > 0) { const a = ss.exerciseIds; const t = a[idx - 1]; a[idx - 1] = a[idx]; a[idx] = t; } }),
+            down: () => this.mut(x => { const ss = x.sessions.find(y => y.id === sess.id); if (ss && idx < ss.exerciseIds.length - 1) { const a = ss.exerciseIds; const t = a[idx + 1]; a[idx + 1] = a[idx]; a[idx] = t; } })
+          };
+        });
+        V.openAdd = () => this.setState({ sheet: 'add', q: '', resolution: null, resolving: 0 });
+        V.finishWorkout = () => { this.mut(s => { const x = s.sessions.find(y => y.id === sess.id); if (x) { x.status = 'completed'; x.endedAt = new Date().toISOString(); } }); this.setState({ screen: 'home', sessionId: null, wName: null, wNotes: null, noteScan: null, restEnd: 0 }); };
+        V.discardWorkout = () => { this.mut(s => { s.sessions = s.sessions.filter(x => x.id !== sess.id); s.sets = s.sets.filter(x => x.sessionId !== sess.id); }); this.setState({ screen: 'home', sessionId: null, wName: null, wNotes: null, noteScan: null, restEnd: 0 }); };
+
+        const pend = (S.flags || []).filter(f => f.status === 'pending' || f.status === 'pending_exclusion');
+        V.wFlags = pend.map(f => {
+          const med = f.medical, excl = f.status === 'pending_exclusion';
+          return {
+            id: f.id, bd: med ? 'rgba(242,181,68,.35)' : 'rgba(168,201,162,.25)', bg: med ? 'rgba(242,181,68,.05)' : 'rgba(168,201,162,.05)',
+            ac: med ? '#F2B544' : accent, icon: med ? 'health_and_safety' : 'warning',
+            kind: med ? 'Health advisory' : f.type === 'rpe_trend' ? 'Effort climbing' : 'Fatigue pattern',
+            subject: (f.variants || []).map(v => this.vName(this.vById(v))).join(', '),
+            explanation: f.explanation, recommendation: f.recommendation, reasoning: f.reasoning,
+            hasReply: !!f.reply, reply: f.reply, aiResponse: f.aiResponse,
+            showReply: st.replyFor === f.id, actions: st.replyFor !== f.id && !excl && !f.reply, exclusion: excl,
+            onReply: () => this.setState({ replyFor: f.id, replyText: '' }),
+            sendReply: () => { const txt = st.replyText; this.mut(s => { const x = s.flags.find(y => y.id === f.id); if (x) { x.reply = txt; x.aiResponse = 'That is situational, not a training signal. I will keep the trend line but tag the session so it does not read as a plateau.'; x.status = 'pending_exclusion'; x.exclusionReason = 'External cause reported by lifter'; } }); this.setState({ replyFor: null, replyText: '' }); },
+            onGotIt: () => this.mut(s => { const x = s.flags.find(y => y.id === f.id); if (x) x.status = 'dismissed'; }),
+            onExclude: () => this.mut(s => { const x = s.flags.find(y => y.id === f.id); if (x) x.status = 'excluded'; })
+          };
+        });
+        V.replyText = st.replyText || '';
+        V.setReplyText = e => this.setState({ replyText: e.target.value });
+        V.cancelReply = () => this.setState({ replyFor: null });
+      }
+    }
+
+    // ---------- ADD SHEET ----------
+    if (V.sheetAdd) {
+      const target = sh === 'addtpl' ? 'tpl' : 'sess';
+      V.q = st.q || '';
+      V.qHasText = !!(st.q || '').trim();
+      V.inputBd = (st.q || '').trim() ? 'rgba(168,201,162,.4)' : '#272C29';
+      V.setQ = e => this.setState({ q: e.target.value, resolution: null });
+      const run = () => {
+        const text = (this.state.q || '').trim(); if (!text) return;
+        this.setState({ resolving: Date.now(), resolution: null });
+        setTimeout(() => { const r = this.resolveText(text); this.setState({ resolving: 0, resolution: r }); }, 1150);
+      };
+      V.runResolve = run;
+      V.qKey = e => { if (e.key === 'Enter') run(); };
+      const el = st.resolving ? Date.now() - st.resolving : 0;
+      V.resolving = !!st.resolving;
+      V.resolveSteps = [
+        { t: 'Parsing the description', at: 0 }, { t: 'Extracting modifiers (grip, attachment, stance)', at: 380 }, { t: 'Matching against your ' + (S.variants || []).length + ' logged variants', at: 760 }
+      ].map(s => { const done = el > s.at + 380, active = el > s.at; return { t: s.t, o: active ? 1 : 0.3, c: done ? accent : '#5F665F', tc: active ? '#ECEFEA' : '#5F665F', icon: done ? 'check_circle' : 'radio_button_unchecked' }; });
+
+      const r = st.resolution;
+      V.hasResolution = !!r;
+      if (r) {
+        if (!r.ok) {
+          V.res = { bd: 'rgba(242,181,68,.35)', bg: 'rgba(242,181,68,.05)', ac: '#F2B544', icon: 'help', status: 'Needs a movement name', name: '"' + r.raw + '"', chips: [], trend: 'I can read modifiers but not the movement. Add the lift itself — "cuff tricep extension", "feet up bench press".', hasNote: false, cta: 'Try again', confirm: () => this.setState({ resolution: null }), showAlt: false };
+        } else {
+          const matched = r.status === 'match', close = r.status === 'close';
+          const mv = r.match;
+          const pts = mv ? (S.sets || []).filter(s => s.variantId === mv.id) : [];
+          const lastSet = pts.length ? pts[pts.length - 1] : null;
+          V.res = {
+            bd: matched ? 'rgba(168,201,162,.3)' : close ? 'rgba(242,181,68,.32)' : '#272C29',
+            bg: matched ? 'rgba(168,201,162,.06)' : close ? 'rgba(242,181,68,.05)' : '#171A18',
+            ac: matched ? accent : close ? '#F2B544' : '#4C8E96',
+            icon: matched ? 'link' : close ? 'call_split' : 'add_circle',
+            status: matched ? 'Matched to an existing variant' : close ? 'Close, but not the same thing' : 'New variant',
+            name: this.title(r.base.k),
+            chips: r.mods.map(m => ({ t: m })).concat([{ t: r.base.m }]),
+            trend: matched
+              ? 'Continues the trend line you already have — logged ' + (mv.uses || pts.length) + ' times' + (lastSet ? ', last at ' + this.dw(lastSet.weight) + ' ' + u + ' x ' + lastSet.reps : '') + '.'
+              : close
+                ? 'Closest match is ' + this.vName(mv) + ' (' + this.vMods(mv) + '). The modifiers differ enough that loads will not be comparable, so I would start a separate line.'
+                : 'No prior match. Starting a fresh trend line — future sessions with this description will land here automatically.',
+            hasNote: !!r.note, note: r.note,
+            showAlt: close, altLabel: 'Same as before', altPick: () => this.addVariantFromResolution(Object.assign({}, r, { useMatch: true }), target),
+            cta: matched ? 'Add to workout' : close ? 'Log as new variant' : 'Add to workout',
+            confirm: () => this.addVariantFromResolution(r, target)
+          };
+        }
+      }
+      const q = this.norm(st.q || '');
+      const all = (S.variants || []).slice().sort((a, b) => (b.uses || 0) - (a.uses || 0));
+      const filtered = (st.q || '').trim() ? all.filter(v => { const hay = this.norm(v.base + ' ' + (v.mods || []).join(' ') + ' ' + v.m); return q.trim().split(' ').some(w => w.length > 1 && hay.indexOf(w) >= 0); }) : all;
+      V.showSuggest = !st.resolving && filtered.length > 0;
+      V.suggestTitle = (st.q || '').trim() ? 'From your history' : 'Most logged';
+      V.suggestions = filtered.slice(0, 8).map(v => ({
+        name: this.vName(v), mods: this.vMods(v), meta: (v.uses || 0) + '\u00d7',
+        pick: () => this.addVariantFromResolution({ ok: true, status: 'match', match: v, base: { k: v.base, m: v.m, p: v.p }, mods: v.mods }, target)
+      }));
+    }
+
+    // ---------- LOG SHEET ----------
+    if (V.sheetLog) {
+      const v = this.vById(st.logEx) || {};
+      const hist = (S.sets || []).filter(s => s.variantId === st.logEx);
+      const last = hist.length ? hist[hist.length - 1] : null;
+      const best = hist.length ? hist.reduce((a, b) => this.e1rm(b.weight, b.reps) > this.e1rm(a.weight, a.reps) ? b : a) : null;
+      V.logName = this.vName(v);
+      V.logRef = last ? 'last ' + this.dw(last.weight) + ' ' + u + ' \u00d7 ' + last.reps + ' @ RIR ' + last.rir : 'first time logging this';
+      const plan = (S.plans || []).find(p => p.variantId === st.logEx);
+      V.setW = st.setW; V.setWPh = plan ? String(Math.round(this.dw(plan.load))) : best ? String(this.dw(best.weight)) : '0';
+      V.hasLogPlan = !!plan;
+      V.logPlan = plan ? 'Coach plan: ' + Math.round(this.dw(plan.load)) + ' ' + u + ' at RIR 3 — pre-filled below.' : '';
+      V.setSetW = e => this.setState({ setW: e.target.value });
+      const step = u === 'lb' ? 5 : 2.5;
+      V.wUp = () => this.setState({ setW: String((parseFloat(st.setW) || (best ? this.dw(best.weight) : 0)) + step) });
+      V.wDown = () => this.setState({ setW: String(Math.max(0, (parseFloat(st.setW) || (best ? this.dw(best.weight) : 0)) - step)) });
+      const mk = (label, key, stp, max, ph) => ({
+        label: label, value: st[key], ph: ph == null ? '' : String(ph),
+        set: e => this.setState({ [key]: e.target.value }),
+        inc: () => this.setState({ [key]: String(Math.min(max, (parseFloat(st[key]) || 0) + stp)) }),
+        dec: () => this.setState({ [key]: String(Math.max(0, (parseFloat(st[key]) || 0) - stp)) })
+      });
+      V.setFields = [mk('Reps', 'setR', 1, 100, best ? best.reps : ''), mk('RIR', 'setRir', 0.5, 5, best ? best.rir : ''), mk('RPE', 'setRpe', 0.5, 10, best ? best.rpe : '')];
+      V.saveSet = () => {
+        const sess = this.curSession(); if (!sess) return;
+        const w = this.fromInput(st.setW || V.setWPh), r = parseFloat(st.setR) || (best ? best.reps : 0);
+        const rir = st.setRir === '' ? (best ? best.rir : 2) : parseFloat(st.setRir);
+        const rpe = st.setRpe === '' ? Math.round((10 - rir) * 2) / 2 : parseFloat(st.setRpe);
+        const n = this.setsOf(sess.id).filter(x => x.variantId === st.logEx).length + 1;
+        this.mut(s => { s.sets.push({ id: this.uid(), sessionId: sess.id, variantId: st.logEx, weight: w, reps: r, rir: rir, rpe: rpe, n: n, ts: new Date().toISOString() }); s.plans = (s.plans || []).filter(p => p.variantId !== st.logEx); });
+        this.setState({ sheet: null, restEnd: Date.now() + 150000, restLen: 150, restFor: this.vName(v) });
+      };
+    }
+
+    // ---------- READINESS ----------
+    if (V.sheetReadiness) {
+      const rd = st.rd || { sleep: 7, energy: 6, soreness: 3, stress: 3 };
+      const score = Math.round(((Math.min(rd.sleep / 7, 1) * 10 + Number(rd.energy) + (10 - rd.soreness) + (10 - rd.stress)) / 4) * 10) / 10;
+      V.rdScore = score;
+      const f = (label, key, min, max, step, lo, hi) => ({ label: label, value: rd[key], min: min, max: max, step: step, lo: lo, hi: hi, set: e => this.setState({ rd: Object.assign({}, rd, { [key]: Number(e.target.value) }) }) });
+      V.rdFields = [f('Sleep (hours)', 'sleep', 0, 12, 0.5, '0h', '12h'), f('Energy', 'energy', 0, 10, 0.5, 'flat', 'buzzing'), f('Soreness', 'soreness', 0, 10, 0.5, 'none', 'wrecked'), f('Stress', 'stress', 0, 10, 0.5, 'calm', 'fried')];
+      V.submitReadiness = () => { const sid = st.sessionId; this.mut(s => { s.readiness.push({ id: this.uid(), sessionId: sid, sleep: rd.sleep, energy: rd.energy, soreness: rd.soreness, stress: rd.stress, score: score }); }); this.setState({ sheet: null }); };
+      V.skipReadiness = () => this.setState({ sheet: null });
+    }
+
+    // ---------- WORKOUTS ----------
+    if (V.isWorkouts) {
+      V.tplList = (S.templates || []).map(t => ({
+        name: t.name, summary: (t.variantIds || []).map(v => this.vName(this.vById(v))).filter(Boolean).join(' · ') || 'Empty',
+        open: () => this.setState({ screen: 'template', tplId: t.id, tplName: null }),
+        start: () => this.startWorkout(t.id),
+        del: () => this.mut(s => { s.templates = s.templates.filter(x => x.id !== t.id); })
+      }));
+      V.noTemplates = (S.templates || []).length === 0;
+      V.newTemplate = () => { const id = this.uid(); this.mut(s => { s.templates.unshift({ id: id, name: 'New workout', variantIds: [] }); }); this.setState({ screen: 'template', tplId: id, tplName: null }); };
+    }
+
+    if (V.isTemplate) {
+      const t = (S.templates || []).find(x => x.id === st.tplId);
+      if (t) {
+        V.tplName = st.tplName != null ? st.tplName : t.name;
+        V.setTplName = e => { const v = e.target.value; this.setState({ tplName: v }); this.mut(s => { const x = s.templates.find(y => y.id === t.id); if (x) x.name = v; }); };
+        V.tplItems = (t.variantIds || []).map((vid, idx) => {
+          const v = this.vById(vid) || {};
+          return {
+            name: this.vName(v), mods: this.vMods(v),
+            remove: () => this.mut(s => { const x = s.templates.find(y => y.id === t.id); if (x) x.variantIds = x.variantIds.filter(e => e !== vid); }),
+            up: () => this.mut(s => { const x = s.templates.find(y => y.id === t.id); if (x && idx > 0) { const a = x.variantIds, tmp = a[idx - 1]; a[idx - 1] = a[idx]; a[idx] = tmp; } }),
+            down: () => this.mut(s => { const x = s.templates.find(y => y.id === t.id); if (x && idx < x.variantIds.length - 1) { const a = x.variantIds, tmp = a[idx + 1]; a[idx + 1] = a[idx]; a[idx] = tmp; } })
+          };
+        });
+        V.openAddTpl = () => this.setState({ sheet: 'addtpl', q: '', resolution: null, resolving: 0 });
+        V.startTpl = () => this.startWorkout(t.id);
+      }
+    }
+
+    // ---------- PROGRESS ----------
+    if (V.isProgress) {
+      const sets = S.sets || [], sess = S.sessions || [];
+      const vol = sets.reduce((a, s) => a + s.weight * s.reps, 0);
+      const used = new Set(sets.map(s => s.variantId));
+      const exs = (S.variants || []).filter(v => used.has(v.id));
+      const sel = st.selEx && used.has(st.selEx) ? st.selEx : (exs[0] ? exs[0].id : null);
+      const pts = sel ? this.matchedPoints(sel) : [];
+      const decl = pts.length >= 3 && pts[pts.length - 1].rir - pts[pts.length - 3].rir <= -1;
+      let stability = 'No data';
+      if (pts.length >= 2) { const rs = pts.slice(-5).map(p => p.rir); const mean = rs.reduce((a, b) => a + b, 0) / rs.length; const dev = Math.sqrt(rs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / rs.length); stability = (rs[rs.length - 1] - rs[0] <= -1) ? 'Declining' : dev >= 1 ? 'Volatile' : 'Stable'; }
+      V.pStats = [
+        { k: 'Sessions', v: sess.length, u: '', color: '#ECEFEA' },
+        { k: 'Sets', v: sets.length, u: '', color: '#ECEFEA' },
+        { k: 'Total volume', v: Math.round(this.dw(vol)).toLocaleString(), u: u, color: '#ECEFEA' },
+        { k: 'RIR stability', v: stability, u: '', color: stability === 'Declining' ? '#F2B544' : accent }
+      ];
+      const bySess = {};
+      sets.forEach(s => bySess[s.sessionId] = (bySess[s.sessionId] || 0) + s.weight * s.reps);
+      const dateOf = {}; sess.forEach(s => dateOf[s.id] = s.date);
+      const vd = Object.keys(bySess).map(k => ({ d: dateOf[k], v: Math.round(this.dw(bySess[k])) })).filter(x => x.d).sort((a, b) => new Date(a.d) - new Date(b.d)).slice(-12);
+      const vmax = Math.max(1, ...vd.map(x => x.v));
+      const bw = vd.length ? (320 / vd.length) : 20;
+      V.volCount = vd.length;
+      V.volBars = vd.map((x, i) => { const h = Math.max(2, (x.v / vmax) * 120); return { x: i * bw + 3, y: 128 - h, w: Math.max(4, bw - 6), h: h, o: i === vd.length - 1 ? 1 : 0.55 }; });
+      V.volLabels = vd.map((x, i) => (i % 3 === 0 || i === vd.length - 1) ? { x: i * bw + bw / 2, t: new Date(x.d).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }) } : null).filter(Boolean);
+      V.exChips = exs.map(v => ({ name: this.vName(v), bd: sel === v.id ? 'rgba(168,201,162,.5)' : '#272C29', bg: sel === v.id ? 'rgba(168,201,162,.1)' : 'transparent', fg: sel === v.id ? accent : '#8A928C', pick: () => this.setState({ selEx: v.id }) }));
+      V.hasRir = pts.length >= 2; V.noRir = pts.length < 2;
+      V.rirDeclining = decl; V.rirColor = decl ? '#F2B544' : accent;
+      const selV = this.vById(sel);
+      V.rirSub = selV ? 'Actual RIR at your most-repeated load for ' + this.vName(selV) + '. Lower means the same weight is costing more.' : 'Pick a lift.';
+      const rmax = 5;
+      V.rirGrid = [0, 1, 2, 3, 4, 5].filter(n => n % 1 === 0).map(n => ({ y: 128 - (n / rmax) * 118, ty: 128 - (n / rmax) * 118 - 3, t: n }));
+      const px = (i) => pts.length === 1 ? 160 : 22 + i * ((296 - 22) / (pts.length - 1));
+      V.rirPts = pts.map((p, i) => ({ x: px(i), y: 128 - (p.rir / rmax) * 118, t: new Date(p.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }) }));
+      V.rirPath = V.rirPts.map(p => p.x + ',' + p.y).join(' ');
+      const excl = (S.flags || []).filter(f => f.status === 'excluded');
+      V.hasExcluded = excl.length > 0;
+      V.excludedList = excl.map(f => {
+        const s = (S.sessions || []).find(x => x.id === f.sessionId);
+        return { reason: f.exclusionReason || 'External cause', date: s ? new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '', reply: f.reply || '', restore: () => this.mut(x => { const y = x.flags.find(z => z.id === f.id); if (y) y.status = 'dismissed'; }) };
+      });
+    }
+
+    // ---------- COACH ----------
+    if (V.isCoach) {
+      const stalled = (S.variants || []).map(v => ({ v: v, pts: this.matchedPoints(v.id) })).filter(x => x.pts.length >= 3 && x.pts[x.pts.length - 1].rir - x.pts[0].rir <= -0.8);
+      V.hasProgramRec = stalled.length >= 2 && (S.recs || []).some(r => r.kind === 'program' && r.status === 'open');
+      V.programRec = {
+        title: stalled.length + ' lifts stalled inside the same two-week window',
+        body: 'Per-exercise diagnosis would file these as ' + stalled.length + ' unrelated plateaus. They are not: effort climbed at matched load across different movement patterns while readiness fell. That points at recovery, not at any one lift.',
+        lifts: stalled.map(x => ({ t: this.vName(x.v) })),
+        action: 'Take a deload week — same movements, 60% of your usual sets, top sets at RIR 4 — then re-test the three lifts above before changing programming.'
+      };
+      V.scanning = !!st.scanning;
+      V.scanIcon = st.scanning ? 'progress_activity' : 'radar';
+      V.scanLabel = st.scanning ? 'Scanning…' : 'Scan';
+      V.scanMsg = !!st.scanMsg; V.scanMsgText = st.scanMsg;
+      V.scan = () => { this.setState({ scanning: true, scanMsg: null }); setTimeout(() => this.setState({ scanning: false, scanMsg: 'Checked ' + (S.variants || []).length + ' variants across ' + (S.sessions || []).length + ' sessions · ' + stalled.length + ' stalled, 1 program-level pattern.' }), 1400); };
+      V.plateaus = (S.recs || []).filter(r => r.kind === 'plateau' && r.status === 'open').map(r => {
+        const v = this.vById(r.variantId) || {};
+        const pts = this.matchedPoints(r.variantId);
+        const first = pts[0], last = pts[pts.length - 1];
+        const sets = (S.sets || []).filter(s => s.variantId === r.variantId);
+        const load = sets.length ? this.dw(sets[sets.length - 1].weight) : 0;
+        const drop = first && last ? Math.round((first.rir - last.rir) * 10) / 10 : 0;
+        return {
+          name: this.vName(v), tag: drop >= 1 ? 'STALLED' : 'WATCH',
+          window: pts.length + ' matched sessions at ' + load + ' ' + u,
+          body: drop >= 1
+            ? 'Load has not moved while RIR fell ' + drop + ' points. That is a fatigue plateau, not a strength ceiling — the same weight is simply costing more.'
+            : 'Load and effort are both flat. Progression has stopped but fatigue is not accumulating, so this is a programming problem rather than a recovery one.',
+          actions: [{ t: 'Drop to ' + Math.round(load * 0.88) + ' ' + u + ' for one session, then rebuild' }, { t: 'Add one back-off set at RIR 3 instead of pushing the top set' }, { t: 'Re-test in two weeks before changing the movement' }],
+          dismiss: () => this.mut(s => { const x = s.recs.find(y => y.id === r.id); if (x) x.status = 'dismissed'; }),
+          accept: () => this.mut(s => {
+            const x = s.recs.find(y => y.id === r.id); if (x) x.status = 'accepted';
+            s.plans = (s.plans || []).filter(p => p.variantId !== r.variantId);
+            s.plans.push({ id: this.uid(), variantId: r.variantId, load: sets.length ? sets[sets.length - 1].weight * 0.88 : 0, backoff: true });
+          })
+        };
+      });
+      V.hasPlans = (S.plans || []).length > 0;
+      V.plansList = (S.plans || []).map(p => {
+        const v = this.vById(p.variantId) || {};
+        return {
+          name: this.vName(v), text: 'Top set capped at ' + Math.round(this.dw(p.load)) + ' ' + u + ', back-off at RIR 3 — waiting on your next session with this lift.',
+          undo: () => this.mut(s => { s.plans = s.plans.filter(x => x.id !== p.id); const r = s.recs.find(y => y.kind === 'plateau' && y.variantId === p.variantId); if (r) r.status = 'open'; })
+        };
+      });
+      V.openGoal = () => this.setState({ sheet: 'goal', gv: null, gTarget: '', gReps: '' });
+      V.goalsList = (S.goals || []).map(g => {
+        const v = this.vById(g.variantId) || {};
+        const sets = (S.sets || []).filter(s => s.variantId === g.variantId).sort((a, b) => new Date(a.ts) - new Date(b.ts));
+        const recent = sets.slice(-9);
+        const cur = recent.length ? Math.round(this.dw(Math.max.apply(null, recent.map(s => this.e1rm(s.weight, s.reps))))) : 0;
+        const early = sets.slice(0, Math.max(1, Math.floor(sets.length / 3)));
+        const eAvg = early.length ? this.dw(Math.max.apply(null, early.map(s => this.e1rm(s.weight, s.reps)))) : cur;
+        const weeks = 8;
+        const rate = (cur - eAvg) / weeks;
+        const gap = g.target - cur;
+        const lin = rate > 0.2 ? Math.ceil(gap / rate) : null;
+        const dec = lin ? [Math.ceil(lin * 1.4), Math.ceil(lin * 2.1)] : null;
+        const done = cur >= g.target;
+        const lastTop = recent.length ? recent[recent.length - 1] : null;
+        return {
+          name: this.vName(v), target: g.target, reps: g.reps, current: cur, pct: Math.min(100, Math.round(cur / g.target * 100)) + '%',
+          achieved: done, open: !done,
+          reached: 'Hit at ' + (lastTop ? this.dw(lastTop.weight) + ' ' + u + ' \u00d7 ' + lastTop.reps : cur + ' ' + u) + ' — estimated, not a tested single. Test it or set the next target.',
+          archive: () => this.mut(s => { s.goals = s.goals.filter(x => x.id !== g.id); }),
+          next: () => this.setState({ sheet: 'goal', gv: g.variantId, gTarget: String(Math.round((cur + 10) / 5) * 5), gReps: String(g.reps) }),
+          linear: lin ? lin + ' wk' : 'flat',
+          decay: dec ? dec[0] + '–' + dec[1] + ' wk' : 'stalled',
+          note: lin
+            ? 'Linear extrapolation assumes ' + (Math.round(rate * 10) / 10) + ' ' + u + '/week forever. Strength decelerates as you approach your ceiling, so the decay-adjusted range is the honest answer.'
+            : 'No positive rate over the last 8 weeks — a projection here would be fiction. Clear the plateau first.',
+          remove: () => this.mut(s => { s.goals = s.goals.filter(x => x.id !== g.id); })
+        };
+      });
+      const weeks = [];
+      for (let w = 0; w < 3; w++) {
+        const end = new Date(); end.setHours(0, 0, 0, 0); end.setDate(end.getDate() - end.getDay() - w * 7);
+        const start = new Date(end); start.setDate(end.getDate() - 7);
+        const ss = (S.sessions || []).filter(x => { const d = new Date(x.date); return d >= start && d < end; });
+        if (!ss.length) continue;
+        const ids = new Set(ss.map(x => x.id));
+        const sets = (S.sets || []).filter(x => ids.has(x.sessionId));
+        const rds = (S.readiness || []).filter(x => ids.has(x.sessionId));
+        const avg = (arr, f) => arr.length ? Math.round((arr.reduce((a, b) => a + f(b), 0) / arr.length) * 10) / 10 : '—';
+        const rpe = avg(sets, s => s.rpe);
+        weeks.push({
+          range: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + new Date(end.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          meta: ss.length + ' sessions · ' + sets.length + ' sets',
+          recap: 'You trained ' + ss.length + ' times for ' + sets.length + ' sets at an average RPE of ' + rpe + '. ' + (rpe >= 8.5 ? 'That is a hard week — most of your work sat near failure, which is why readiness is sliding.' : 'Effort sat in a sustainable band; volume is doing the work rather than intensity.'),
+          stats: [{ k: 'Avg readiness', v: avg(rds, r => r.score) + '/10' }, { k: 'Avg sleep', v: avg(rds, r => r.sleep) + 'h' }, { k: 'Avg RPE', v: rpe }, { k: 'Volume', v: Math.round(this.dw(sets.reduce((a, s) => a + s.weight * s.reps, 0)) / 1000 * 10) / 10 + 'k' }]
+        });
+      }
+      V.reports = weeks;
+    }
+
+    if (V.sheetGoal) {
+      const used = new Set((S.sets || []).map(s => s.variantId));
+      V.goalPicks = (S.variants || []).filter(v => used.has(v.id)).slice(0, 8).map(v => ({ name: this.vName(v), bd: st.gv === v.id ? 'rgba(168,201,162,.5)' : '#272C29', bg: st.gv === v.id ? 'rgba(168,201,162,.1)' : 'transparent', fg: st.gv === v.id ? accent : '#8A928C', pick: () => this.setState({ gv: v.id }) }));
+      V.gTarget = st.gTarget || ''; V.gReps = st.gReps || '';
+      V.setGTarget = e => this.setState({ gTarget: e.target.value });
+      V.setGReps = e => this.setState({ gReps: e.target.value });
+      V.saveGoal = () => { if (!st.gv || !st.gTarget) return; this.mut(s => { s.goals.push({ id: this.uid(), variantId: st.gv, target: parseFloat(st.gTarget), reps: parseFloat(st.gReps) || 5, status: 'active' }); }); this.setState({ sheet: null }); };
+    }
+
+    // ---------- SESSION DETAIL ----------
+    if (V.isSession) {
+      const s = (S.sessions || []).find(x => x.id === st.sessionId);
+      if (s) {
+        const sets = this.setsOf(s.id);
+        V.sdName = s.name || 'Workout';
+        V.sdDate = new Date(s.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        const dur = s.endedAt ? Math.round((new Date(s.endedAt) - new Date(s.date)) / 60000) : null;
+        V.sdStats = [{ k: 'Sets', v: sets.length }, { k: 'Volume', v: Math.round(this.dw(sets.reduce((a, x) => a + x.weight * x.reps, 0)) / 1000 * 10) / 10 + 'k' }, { k: 'Time', v: dur ? dur + 'm' : '—' }];
+        const rd = (S.readiness || []).find(r => r.sessionId === s.id);
+        V.sdHasReadiness = !!rd;
+        if (rd) { V.sdReadiness = rd.score; V.sdReadinessDetail = rd.sleep + 'h sleep · energy ' + rd.energy + ' · soreness ' + rd.soreness; }
+        V.sdBlocks = (s.exerciseIds || []).map(vid => {
+          const v = this.vById(vid) || {};
+          return { name: this.vName(v), mods: this.vMods(v), sets: sets.filter(x => x.variantId === vid).map((x, i) => ({ n: i + 1, line: this.dw(x.weight) + ' ' + u + ' \u00d7 ' + x.reps + '  ·  RIR ' + x.rir })) };
+        });
+        V.sdHasNotes = !!s.notes; V.sdNotes = s.notes;
+        V.backFromSession = () => this.go('home');
+        V.deleteSession = () => { this.mut(x => { x.sessions = x.sessions.filter(y => y.id !== s.id); x.sets = x.sets.filter(y => y.sessionId !== s.id); }); this.go('home'); };
+      }
+    }
+
+    // ---------- SETTINGS ----------
+    if (V.isSettings) {
+      V.unitOpts = [['kg', 'kg', 'Kilograms'], ['lb', 'lb', 'Pounds']].map(o => ({
+        label: o[1], hint: o[2], bd: u === o[0] ? 'rgba(168,201,162,.45)' : '#272C29', bg: u === o[0] ? 'rgba(168,201,162,.07)' : 'transparent', fg: u === o[0] ? accent : '#ECEFEA',
+        pick: () => this.mut(s => { s.unit = o[0]; })
+      }));
+      V.dietOpts = [['cutting', 'Cutting', 'Deficit'], ['maintaining', 'Maintaining', 'Neutral'], ['bulking', 'Bulking', 'Surplus']].map(o => ({
+        label: o[1], hint: o[2], bd: S.diet === o[0] ? 'rgba(168,201,162,.45)' : '#272C29', bg: S.diet === o[0] ? 'rgba(168,201,162,.07)' : 'transparent', fg: S.diet === o[0] ? accent : '#ECEFEA',
+        pick: () => this.mut(s => { s.diet = s.diet === o[0] ? null : o[0]; })
+      }));
+      V.mgoalRows = this.PARTS.map(p => {
+        const g = (S.mgoals || []).find(x => x.part === p.id);
+        const val = g ? g.target : 0;
+        const set = n => this.mut(s => { const x = s.mgoals.find(y => y.part === p.id); if (x) x.target = Math.max(0, Math.min(7, n)); else s.mgoals.push({ part: p.id, target: Math.max(0, n) }); });
+        return { label: p.label, val: val, inc: () => set(val + 1), dec: () => set(val - 1) };
+      });
+      const seeded = S.seeded;
+      V.seededBd = seeded ? 'rgba(168,201,162,.45)' : '#272C29'; V.seededBg = seeded ? 'rgba(168,201,162,.08)' : 'transparent'; V.seededFg = seeded ? accent : '#8A928C';
+      V.emptyBd = !seeded ? 'rgba(168,201,162,.45)' : '#272C29'; V.emptyBg = !seeded ? 'rgba(168,201,162,.08)' : 'transparent'; V.emptyFg = !seeded ? accent : '#8A928C';
+      V.seedData = () => { const s = this.seedStore(); s.unit = u; this.persist(s); this.setState({ store: s, screen: 'home', selEx: null }); };
+      V.clearData = () => { const s = this.emptyStore(); s.unit = u; this.persist(s); this.setState({ store: s, screen: 'home', selEx: null }); };
+      V.logout = () => this.setState({ screen: 'login' });
+    }
+
+    // ---------- AUTH ----------
+    if (V.isAuth) {
+      const cfg = {
+        login: { t: 'Welcome back', s: 'Your training history is waiting.', cta: 'Log in', f: ['email', 'password'], links: [['No account yet? ', 'Create one', 'register'], ['', 'Forgot your password?', 'forgot']] },
+        register: { t: 'Start training', s: 'Two minutes to set up, then describe your first lift.', cta: 'Create account', f: ['email', 'password'], links: [['Already have an account? ', 'Log in', 'login']] },
+        forgot: { t: 'Reset password', s: 'We will send a link to your email.', cta: 'Send reset link', f: ['email'], links: [['', 'Back to log in', 'login']] },
+        reset: { t: 'New password', s: 'Choose something you will actually remember.', cta: 'Save and log in', f: ['password'], links: [['', 'Back to log in', 'login']] }
+      }[sc];
+      V.authTitle = cfg.t; V.authSub = cfg.s; V.authCta = cfg.cta;
+      V.authFields = cfg.f.map(k => k === 'email'
+        ? { label: 'Email', value: st.authEmail == null ? S.email : st.authEmail, type: 'email', ph: 'you@example.com', set: e => this.setState({ authEmail: e.target.value }) }
+        : { label: 'Password', value: st.authPw || '', type: 'password', ph: '••••••••', set: e => this.setState({ authPw: e.target.value }) });
+      V.authMsg = !!st.authMsg; V.authMsgText = st.authMsg;
+      V.authLinks = cfg.links.map(l => ({ pre: l[0], t: l[1], go: () => this.setState({ screen: l[2], authMsg: null }) }));
+      V.authSubmit = () => {
+        if (sc === 'forgot') { this.setState({ authMsg: 'Reset link sent. Check your inbox — the link expires in 30 minutes.' }); return; }
+        this.setState({ screen: 'home', authMsg: null, authPw: '' });
+      };
+      V.authGoogle = () => this.setState({ screen: 'home' });
+    }
+
+    // ---------- NOTES PANEL ----------
+    if (framed) {
+      V.demoLines = [
+        { t: 'single arm cuff tricep extension' },
+        { t: 'feet up narrow grip bench press' },
+        { t: 'narrow-grip bench, feet elevated' },
+        { t: 'rope tricep extension one arm' }
+      ];
+      V.critiqueItems = [
+        { icon: 'database_off', color: accent, t: 'Vendor lock-in gone.', d: 'No third-party exercise API, no per-key cost, no taxonomy to map onto.' },
+        { icon: 'psychology', color: accent, t: 'Injury detection is a classifier.', d: 'Catches "my shoulder\u2019s been off" and ignores "hurt so good" — try both in the notes field.' },
+        { icon: 'trending_down', color: accent, t: 'Projections decay.', d: 'Goals show the linear pace next to a decay-adjusted range instead of one confident date.' },
+        { icon: 'hub', color: accent, t: 'Program-level check.', d: 'Simultaneous stalls roll up into one recovery diagnosis instead of four unrelated ones.' }
+      ];
+      V.swatches = [{ c: '#101211', t: 'bg' }, { c: '#171A18', t: 'surface' }, { c: '#272C29', t: 'line' }, { c: '#A8C9A2', t: 'signal' }, { c: '#4C8E96', t: 'teal' }, { c: '#F2B544', t: 'warn' }];
+      V.jumps = [['home', 'Home'], ['workout', 'Workout'], ['progress', 'Progress'], ['coach', 'Coach'], ['workouts', 'Templates'], ['settings', 'Settings'], ['login', 'Auth']].map(j => ({
+        t: j[1], bd: sc === j[0] ? 'rgba(168,201,162,.45)' : '#222623', bg: sc === j[0] ? 'rgba(168,201,162,.08)' : 'transparent', fg: sc === j[0] ? accent : '#8A928C',
+        go: () => { if (j[0] === 'workout') { this.startWorkout(null); } else this.go(j[0]); }
+      }));
+    }
+
+    return V;
+  }
+}
+</script>
+</body>
+</html>
