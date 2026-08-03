@@ -33,6 +33,7 @@ export const auth = {
   signOut: () => supabase.auth.signOut(),
   resetPassword: (email) =>
     supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset` }).then(ok),
+  updatePassword: (password) => supabase.auth.updateUser({ password }).then(ok),
   onChange: (fn) => supabase.auth.onAuthStateChange((_e, session) => fn(session)),
   session: () => supabase.auth.getSession().then(({ data }) => data.session),
 };

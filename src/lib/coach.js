@@ -71,7 +71,7 @@ export function detectPlateau(series = []) {
     watch: drop >= 0.5 && drop < 1,
     drop: Math.round(drop * 10) / 10,
     sessions: series.length,
-    stability: drop >= 1 ? 'declining' : sd >= 1 ? 'volatile' : 'stable',
+    stability: drop >= 1 ? 'declining' : sd >= 0.75 ? 'volatile' : 'stable',
   };
 }
 
