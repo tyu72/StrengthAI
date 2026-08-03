@@ -7,6 +7,10 @@ import { display } from '@/lib/units'
 
 const pluralize = (n) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
 
+// Shown only when there's no history yet to suggest from — teaches the freeform
+// syntax with real resolver vocabulary (grip/attachment/stance) rather than a blank box.
+const EXAMPLES = ['single arm cuff tricep extension', 'feet up narrow grip bench press', 'romanian deadlift']
+
 function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
   if (result.status === 'unknown') {
     return (
@@ -225,6 +229,25 @@ export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) 
               ))}
             </div>
           </>
+        )}
+
+        {!result && suggestions.length === 0 && (
+          <div className="mt-4">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+              Try something like
+            </div>
+            <div className="flex flex-col gap-[7px]">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  onClick={() => setQuery(ex)}
+                  className="rounded-[14px] border border-dashed border-border px-[13px] py-3 text-left text-[13px] text-muted-foreground"
+                >
+                  &quot;{ex}&quot;
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </Sheet>

@@ -10,6 +10,9 @@ import Workout from '@/pages/Workout'
 import Progress from '@/pages/Progress'
 import Coach from '@/pages/Coach'
 import SessionDetail from '@/pages/SessionDetail'
+import Settings from '@/pages/Settings'
+import Templates from '@/pages/Templates'
+import TemplateEditor from '@/pages/TemplateEditor'
 
 function App() {
   return (
@@ -24,8 +27,11 @@ function App() {
           <Route path="/workout/:sessionId" element={<Workout />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/coach" element={<Coach />} />
+          <Route path="/workouts" element={<Templates />} />
         </Route>
         <Route path="/session/:sessionId" element={<SessionDetail />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/template/:templateId" element={<TemplateEditor />} />
       </Route>
     </Routes>
   )

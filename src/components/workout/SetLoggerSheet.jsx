@@ -22,6 +22,7 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
   const [rpe, setRpe] = useState('')
   const [last, setLast] = useState(null)
   const [best, setBest] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => {
     if (!open || !variantId) return
@@ -31,12 +32,16 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
     setRpe('')
     setLast(null)
     setBest(null)
+    setHistoryLoading(true)
     let alive = true
-    setsApi.forVariant(variantId).then((hist) => {
-      if (!alive || !hist.length) return
-      setLast(hist[hist.length - 1])
-      setBest(hist.reduce((a, b) => (e1rm(b.weight_kg, b.reps) > e1rm(a.weight_kg, a.reps) ? b : a)))
-    })
+    setsApi
+      .forVariant(variantId)
+      .then((hist) => {
+        if (!alive || !hist.length) return
+        setLast(hist[hist.length - 1])
+        setBest(hist.reduce((a, b) => (e1rm(b.weight_kg, b.reps) > e1rm(a.weight_kg, a.reps) ? b : a)))
+      })
+      .finally(() => alive && setHistoryLoading(false))
     return () => {
       alive = false
     }
@@ -44,9 +49,11 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
 
   const weightPh = plan ? display(plan.target_load_kg, unit) : best ? display(best.weight_kg, unit) : 0
   const stepAmt = step(unit)
-  const logRef = last
-    ? `last ${display(last.weight_kg, unit)} ${unit} × ${last.reps} @ RIR ${last.rir}`
-    : 'first time logging this'
+  const logRef = historyLoading
+    ? 'Loading history…'
+    : last
+      ? `last ${display(last.weight_kg, unit)} ${unit} × ${last.reps} @ RIR ${last.rir}`
+      : 'first time logging this'
   const logPlan = plan ? `Coach plan: ${Math.round(weightPh)} ${unit} at RIR 3 — pre-filled below.` : null
 
   const repsField = numField(reps, setReps, 1, 100, best ? best.reps : '')
@@ -96,8 +103,9 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
               type="number"
-              placeholder={String(weightPh)}
-              className="min-w-0 flex-1 bg-transparent text-center font-mono text-[30px] tracking-[-0.04em] text-foreground outline-none"
+              disabled={historyLoading}
+              placeholder={historyLoading ? '' : String(weightPh)}
+              className="min-w-0 flex-1 bg-transparent text-center font-mono text-[30px] tracking-[-0.04em] text-foreground outline-none disabled:opacity-50"
             />
             <button
               onClick={() => setWeight(String((parseFloat(weight) || weightPh) + stepAmt))}
@@ -142,7 +150,8 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </button>
           <button
             onClick={handleSave}
-            className="flex-[2] rounded-2xl bg-primary py-[14px] text-center text-[14px] font-bold text-primary-foreground"
+            disabled={historyLoading}
+            className="flex-[2] rounded-2xl bg-primary py-[14px] text-center text-[14px] font-bold text-primary-foreground disabled:opacity-60"
           >
             Log set
           </button>

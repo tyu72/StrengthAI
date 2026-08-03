@@ -7,13 +7,14 @@ import {
   profile as profileApi,
   readiness as readinessApi,
   recommendations as recommendationsApi,
+  reports as reportsApi,
   sessions,
   sets as setsApi,
   variants as variantsApi,
 } from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
 import { display } from '@/lib/units'
-import { detectPlateau, detectProgramPattern, e1rm, matchedRirSeries } from '@/lib/coach'
+import { detectPlateau, detectProgramPattern, e1rm, matchedRirSeries, sessionVolumeKg, weekRange } from '@/lib/coach'
 import { PlateauCard } from '@/components/coach/PlateauCard'
 import { GoalCard } from '@/components/coach/GoalCard'
 import { GoalSheet } from '@/components/coach/GoalSheet'
@@ -34,6 +35,7 @@ export default function Coach() {
   const [goalsList, setGoalsList] = useState([])
   const [goalSheetOpen, setGoalSheetOpen] = useState(false)
   const [goalSheetInitial, setGoalSheetInitial] = useState(null)
+  const [reportsList, setReportsList] = useState([])
   // guards against overlapping runs — StrictMode's double effect-invoke (and a fast
   // double-tap of Scan) would otherwise race two passes against the same dedup snapshot
   // and both sides could decide independently to create a recommendation
@@ -84,6 +86,44 @@ export default function Coach() {
         })
       )
       setGoalsList(updatedGoals)
+
+      // weekly reports — last 3 weeks with at least one session (including the
+      // current, in-progress one, matching the prototype's own w=0..2 loop), upserted
+      // so re-opening Coach later in an active week just refreshes its numbers
+      const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const avg = (arr, f) => (arr.length ? Math.round((arr.reduce((a, b) => a + f(b), 0) / arr.length) * 10) / 10 : null)
+      const reportRows = []
+      for (let w = 0; w < 3; w++) {
+        const anchor = new Date()
+        anchor.setDate(anchor.getDate() - w * 7)
+        const [start, end] = weekRange(anchor)
+        const weekSessions = sessionList.filter((s) => {
+          const d = new Date(s.started_at)
+          return d >= start && d < end
+        })
+        if (!weekSessions.length) continue
+        const weekIds = new Set(weekSessions.map((s) => s.id))
+        const weekSets = allSets.filter((s) => weekIds.has(s.session_id))
+        const weekReadiness = readinessList.filter((r) => weekIds.has(r.session_id))
+        const avgRpe = avg(weekSets, (s) => s.rpe ?? 0)
+        const recap =
+          avgRpe != null && avgRpe >= 8.5
+            ? `You trained ${weekSessions.length} times for ${weekSets.length} sets at an average RPE of ${avgRpe}. That is a hard week — most of your work sat near failure, which is why readiness is sliding.`
+            : `You trained ${weekSessions.length} times for ${weekSets.length} sets at an average RPE of ${avgRpe ?? '—'}. Effort sat in a sustainable band; volume is doing the work rather than intensity.`
+        reportRows.push({
+          week_start: ymd(start),
+          week_end: ymd(new Date(end.getTime() - 1)),
+          sessions_count: weekSessions.length,
+          sets_count: weekSets.length,
+          avg_readiness: avg(weekReadiness, (r) => r.score ?? 0),
+          avg_sleep: avg(weekReadiness, (r) => r.sleep_hours ?? 0),
+          avg_rpe: avgRpe,
+          volume_kg: sessionVolumeKg(weekSets),
+          recap,
+        })
+      }
+      await Promise.all(reportRows.map((row) => reportsApi.upsert(row)))
+      setReportsList(await reportsApi.list())
 
       const datesBySession = {}
       sessionList.forEach((s) => {
@@ -448,6 +488,49 @@ export default function Coach() {
           />
         ))}
       </div>
+
+      {reportsList.length > 0 && (
+        <>
+          <div className="mt-6 mb-[10px] text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Weekly reports
+          </div>
+          <div className="flex flex-col gap-[10px]">
+            {reportsList.map((r) => {
+              const rangeStart = new Date(`${r.week_start}T00:00:00`)
+              const rangeEnd = new Date(`${r.week_end}T00:00:00`)
+              const opts = { month: 'short', day: 'numeric' }
+              const stats = [
+                { k: 'Avg readiness', v: r.avg_readiness != null ? `${r.avg_readiness}/10` : '—' },
+                { k: 'Avg sleep', v: r.avg_sleep != null ? `${r.avg_sleep}h` : '—' },
+                { k: 'Avg RPE', v: r.avg_rpe ?? '—' },
+                { k: 'Volume', v: `${Math.round((display(r.volume_kg, unit) / 1000) * 10) / 10}k` },
+              ]
+              return (
+                <div key={r.id} className="rounded-[18px] border border-border bg-card p-[15px]">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-mono">
+                      {rangeStart.toLocaleDateString(undefined, opts)} – {rangeEnd.toLocaleDateString(undefined, opts)}
+                    </span>
+                    <span>
+                      {r.sessions_count} session{r.sessions_count === 1 ? '' : 's'} · {r.sets_count} set
+                      {r.sets_count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="mt-[9px] text-[13px] leading-[1.6] text-[#C7CCC6]">{r.recap}</div>
+                  <div className="mt-3 grid grid-cols-2 gap-[7px]">
+                    {stats.map((s) => (
+                      <div key={s.k} className="rounded-[11px] border border-border p-[10px]">
+                        <div className="text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground">{s.k}</div>
+                        <div className="mt-0.5 font-mono text-[13px] font-semibold">{s.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       <GoalSheet
         open={goalSheetOpen}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Play, Settings } from 'lucide-react'
 import {
   profile as profileApi,
   sessions,
@@ -12,8 +12,8 @@ import { display } from '@/lib/units'
 import { weekRange, sessionVolumeKg } from '@/lib/coach'
 import logo from '@/assets/logo.png'
 
-const PART_LABELS = { chest: 'Chest', back: 'Back', arms: 'Arms', legs: 'Legs' }
-const PART_ORDER = ['chest', 'back', 'arms', 'legs']
+export const PART_LABELS = { chest: 'Chest', back: 'Back', arms: 'Arms', legs: 'Legs' }
+export const PART_ORDER = ['chest', 'back', 'arms', 'legs']
 
 const ymd = (d) => {
   const dt = new Date(d)
@@ -185,12 +185,20 @@ export default function Home() {
         </div>
       )}
 
-      <div className="flex items-center gap-[11px]">
-        <img src={logo} alt="" className="h-[38px] w-[38px] rounded-xl object-cover" />
-        <div>
-          <div className="text-base font-semibold leading-[1.1] tracking-[-0.01em]">StrengthAI</div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">Train Smarter</div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-[11px]">
+          <img src={logo} alt="" className="h-[38px] w-[38px] rounded-xl object-cover" />
+          <div>
+            <div className="text-base font-semibold leading-[1.1] tracking-[-0.01em]">StrengthAI</div>
+            <div className="mt-0.5 text-[11px] text-muted-foreground">Train Smarter</div>
+          </div>
         </div>
+        <button
+          onClick={() => navigate('/settings')}
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-xl border border-border text-muted-foreground"
+        >
+          <Settings className="h-[18px] w-[18px]" />
+        </button>
       </div>
 
       <button
