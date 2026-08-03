@@ -13,7 +13,7 @@ export function AuthShell({
   links,
 }) {
   return (
-    <div className="flex min-h-svh flex-col bg-background px-[26px] pt-[60px] pb-10 text-foreground">
+    <div className="flex min-h-full flex-col bg-background px-[26px] pt-[60px] pb-10 text-foreground">
       <img src={logo} alt="StrengthAI" className="mb-[26px] h-[52px] w-[52px] rounded-2xl object-cover" />
 
       <h1 className="text-[27px] font-bold leading-[1.15] tracking-[-0.03em]">{title}</h1>

@@ -120,9 +120,10 @@ and show something.
 **RLS is the security boundary.** The anon key ships inside the app bundle. The
 policies in `schema.sql` are what actually stop one user reading another's data.
 
-**Health advisories are conservative on purpose.** `classifyNote` biases toward
-flagging: a false advisory costs one tap, a missed one costs a training block. Keep
-that bias if you later add a model pass.
+**No medical claims.** The app doesn't classify or diagnose anything from session
+notes. Notes are just notes; the lifter can manually exclude a session from trend
+analysis with a reason (fatigue, travel, illness — whatever it was), which keeps a
+bad week from reading as a plateau without the app claiming to know why.
 
 ## Later, not now
 
@@ -131,5 +132,4 @@ that bias if you later add a model pass.
   new alias. Costs money, so it's optional and off by default.
 - **Incremental stats** — a `variant_stats` table maintained by a trigger, so trends
   read one row instead of the whole history. Not until it's slow.
-- **App Store** — needs a developer account, privacy policy, screenshots, and health
-  disclaimers because the app comments on possible injury.
+- **App Store** — needs a developer account, privacy policy, screenshots.

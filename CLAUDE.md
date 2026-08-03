@@ -87,10 +87,9 @@ something, or explicitly declines to. Patterns to preserve when extending this:
 - `projectGoal` refuses to project when the observed rate isn't positive, and always
   returns a decay-adjusted range alongside the naive linear one — straight-line
   extrapolation is knowingly false near a lifter's ceiling.
-- `classifyNote` biases toward flagging possible injury language: a false advisory
-  costs one tap, a missed one costs a training block. Benign idioms ("hurt so good")
-  are checked before the explicit-pain keywords so they don't get miscaught. Keep this
-  bias if a model pass is added later.
+- No injury/pain classification exists or is planned — cut deliberately to avoid
+  medical claims. Session notes are plain text; the only related feature is a manual
+  "exclude this session from trends" action where the lifter gives their own reason.
 
 ### Data layer (`src/api/db.js`)
 

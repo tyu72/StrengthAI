@@ -147,50 +147,6 @@ export function projectGoal({ currentKg, targetKg, history = [], weeksObserved =
   };
 }
 
-/**
- * Injury vs. soreness classification on session notes.
- *
- * Replaces the keyword list, which missed "my shoulder's been off" (no keyword) and
- * false-positived on "that set hurt so good" (keyword, harmless). Benign phrasing is
- * checked FIRST so idioms win over the words inside them.
- *
- * Bias is intentionally toward flagging: a false advisory costs one tap, a missed one
- * costs a training block. When you later add a model pass, keep that bias.
- */
-const BENIGN = [
-  /hurt so good/, /good pain/, /sore in a good way/, /pump was (insane|crazy|nuts)/,
-  /burn(ed|s)? like hell/, /crushed it/, /felt great/,
-];
-
-const EXPLICIT = [
-  /\bpain\b/, /\btweak(ed)?\b/, /\bstrain(ed)?\b/, /\bpinch(ed|ing)?\b/, /\bsharp\b/,
-  /\bnumb(ness)?\b/, /\btingl/, /\bpopped\b/, /\bimpinge/, /\bswollen\b/,
-];
-
-const SUBTLE = [
-  /(shoulder|knee|elbow|back|hip|wrist|neck|lat|pec|groin)[^.]{0,24}(been off|not right|feels? weird|feels? wrong|acting up|cranky|angry|bugging me|off lately)/,
-  /something (felt|feels) (wrong|off)/,
-  /did ?n.?t feel right/,
-  /had to (stop|rack|bail|cut)/,
-  /could ?n.?t finish/,
-];
-
-export function classifyNote(text) {
-  const t = String(text || '').toLowerCase();
-  if (!t.trim()) return null;
-
-  if (BENIGN.some((r) => r.test(t))) {
-    return { risk: false, confidence: 'high', label: 'Effort language, not injury', matched: 'benign idiom' };
-  }
-  if (EXPLICIT.some((r) => r.test(t))) {
-    return { risk: true, confidence: 'high', label: 'Health advisory', matched: 'explicit discomfort' };
-  }
-  if (SUBTLE.some((r) => r.test(t))) {
-    return { risk: true, confidence: 'moderate', label: 'Health advisory', matched: 'indirect discomfort' };
-  }
-  return { risk: false, confidence: 'high', label: 'Nothing clinical detected', matched: null };
-}
-
 /** Sunday-start week containing `d`. */
 export function weekRange(d = new Date()) {
   const start = new Date(d);

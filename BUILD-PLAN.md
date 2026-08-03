@@ -3,8 +3,9 @@
 From prototype to an app on your phone. Nine phases, ordered so the thing is usable
 early and gets better, rather than being unusable until the end.
 
-**Stack:** React + Vite (you already have it) · Supabase (Postgres + auth) ·
-Capacitor (wraps the web app as iOS + Android) · deployed to the web as well.
+**Stack:** React + Vite (you already have it) · Supabase (Postgres + auth) · installable
+as a PWA · deployed to the web as well. No native wrapper (Capacitor) for now — see
+Phase 4.
 
 **Rule for every phase:** it ends with something you can open and use. If a phase is
 dragging, ship it half-done and move on — you can come back.
@@ -73,23 +74,24 @@ foundation.
 
 ---
 
-## Phase 4 — Ship it to your phone (1 day)
+## Phase 4 — Installable on your phone, browser-only (½ day)
 
-Do this early. It surfaces problems you can't see in a desktop browser.
+No native wrapper for now — a PWA instead. Do this early anyway, since it surfaces
+problems you can't see in a desktop browser.
 
-```bash
-npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
-npx cap init StrengthAI com.yourname.strengthai
-npm run build && npx cap add ios && npx cap add android
-npx cap open ios      # opens Xcode
-```
-
-- [ ] Runs on your own iPhone via Xcode (free, no developer account needed for personal
-      devices — the app expires after 7 days and you re-install it)
-- [ ] Fix what you find: safe areas, the keyboard covering inputs, touch targets
-- [ ] Add `@capacitor/haptics` — a tick when a set is logged is worth the ten minutes
+- [x] `public/manifest.json` — name, theme/background `#101211`, `display: standalone`,
+      192px and 512px icons generated from `prototype/assets/logo.png`
+- [x] Manifest linked from `index.html`, plus `apple-mobile-web-app-capable` and a
+      `black-translucent` status bar for iOS's add-to-home-screen behavior
+- [x] Safe-area insets (`viewport-fit=cover` + `env(safe-area-inset-*)`) so the layout
+      clears the notch and home indicator when running standalone
+- [ ] Add to home screen on your own phone, confirm it opens without browser chrome
+- [ ] Fix what you find on a real device: the keyboard covering inputs, touch targets
 
 **Done when:** the icon is on your home screen and you logged a workout from it.
+
+**Later, not now:** wrapping this as a native app via Capacitor (iOS/Android app store
+distribution, haptics, HealthKit) — deferred; revisit if the PWA isn't enough.
 
 ---
 
@@ -112,7 +114,8 @@ All of this runs on your own data with no model calls.
 - [ ] Program-level pattern when several stall together (`coach.detectProgramPattern`)
 - [ ] Strength goals with decay-adjusted projections (`coach.projectGoal`)
 - [ ] Readiness survey and its trend
-- [ ] Injury/pain classification on session notes (`coach.classifyNote`)
+- [ ] Session notes, plus a manual "exclude this session from trends" action with a
+      reason — no medical claims, the lifter decides
 - [ ] Accepted recommendations write a plan that shows up in the next workout
 
 **Done when:** the coach says something about your training that you didn't already
@@ -136,8 +139,7 @@ Not v1. Each is a project of its own:
 - **Apple Health sync** — needs a Capacitor plugin and HealthKit entitlements
 - **Sharing** — needs image generation and a public link surface
 - **Model-backed resolver** — only for descriptions the dictionary misses; costs money
-- **App Store submission** — $99/year, privacy policy, screenshots, review. Also
-  needs health disclaimers, since the app comments on possible injury.
+- **App Store submission** — $99/year, privacy policy, screenshots, review.
 - **Apple Watch** — a separate native target, effectively a second app
 
 ---

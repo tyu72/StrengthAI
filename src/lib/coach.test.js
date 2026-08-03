@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   matchedRirSeries, detectPlateau, detectProgramPattern,
-  projectGoal, classifyNote, e1rm,
+  projectGoal, e1rm,
 } from './coach.js';
 
 const set = (session_id, weight_kg, reps, rir) => ({ session_id, weight_kg, reps, rir });
@@ -127,32 +127,5 @@ describe('projectGoal', () => {
     const r = projectGoal({ currentKg: 130, targetKg: 100, history });
     expect(r.achieved).toBe(true);
     expect(r.projectable).toBe(false);
-  });
-});
-
-describe('classifyNote', () => {
-  it('catches indirect phrasing a keyword list would miss', () => {
-    expect(classifyNote("my shoulder's been off all week").risk).toBe(true);
-    expect(classifyNote('something felt wrong on the third rep').risk).toBe(true);
-    expect(classifyNote('had to rack it early').risk).toBe(true);
-  });
-
-  it('does not flag effort language containing a trigger word', () => {
-    expect(classifyNote('that last set hurt so good').risk).toBe(false);
-    expect(classifyNote('legs burned like hell, great session').risk).toBe(false);
-  });
-
-  it('flags explicit discomfort with high confidence', () => {
-    const r = classifyNote('sharp pain in my elbow');
-    expect(r.risk).toBe(true);
-    expect(r.confidence).toBe('high');
-  });
-
-  it('stays quiet on ordinary notes', () => {
-    expect(classifyNote('felt strong, added 5lb').risk).toBe(false);
-  });
-
-  it('returns null for an empty note', () => {
-    expect(classifyNote('   ')).toBeNull();
   });
 });

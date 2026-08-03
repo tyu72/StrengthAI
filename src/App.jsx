@@ -5,6 +5,7 @@ import Register from '@/pages/Register'
 import ForgotPassword from '@/pages/ForgotPassword'
 import ResetPassword from '@/pages/ResetPassword'
 import Home from '@/pages/Home'
+import Workout from '@/pages/Workout'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/reset" element={<ResetPassword />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Home />} />
+        <Route path="/workout/:sessionId" element={<Workout />} />
       </Route>
     </Routes>
   )

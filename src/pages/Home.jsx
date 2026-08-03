@@ -1,20 +1,323 @@
-import { useAuth } from '@/context/AuthContext'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import {
+  profile as profileApi,
+  sessions,
+  sets as setsApi,
+  variants as variantsApi,
+  muscleGoals,
+} from '@/api/db'
+import { display } from '@/lib/units'
+import { weekRange, sessionVolumeKg } from '@/lib/coach'
+import logo from '@/assets/logo.png'
 
-// Placeholder only — the real home/workout screen is Phase 3. This exists so
-// ProtectedRoute has something concrete to guard and the login/session-persistence
-// loop is testable end to end.
+const PART_LABELS = { chest: 'Chest', back: 'Back', arms: 'Arms', legs: 'Legs' }
+const PART_ORDER = ['chest', 'back', 'arms', 'legs']
+
+const ymd = (d) => {
+  const dt = new Date(d)
+  return `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`
+}
+
 export default function Home() {
-  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [unit, setUnit] = useState('lb')
+  const [active, setActive] = useState(null)
+  const [sessionList, setSessionList] = useState([])
+  const [allSets, setAllSets] = useState([])
+  const [variantList, setVariantList] = useState([])
+  const [goals, setGoals] = useState([])
+  const [starting, setStarting] = useState(false)
+  const [cursor, setCursor] = useState(null)
+  const [openDay, setOpenDay] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      profileApi.get(),
+      sessions.active(),
+      sessions.list(),
+      setsApi.all(),
+      variantsApi.list(),
+      muscleGoals.list(),
+    ])
+      .then(([p, act, sessionRows, setRows, variantRows, goalRows]) => {
+        if (!alive) return
+        setUnit(p?.unit ?? 'lb')
+        setActive(act)
+        setSessionList(sessionRows)
+        setAllSets(setRows)
+        setVariantList(variantRows)
+        setGoals(goalRows)
+      })
+      .catch((err) => alive && setError(err.message))
+      .finally(() => alive && setLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const variantById = useMemo(() => {
+    const map = new Map()
+    variantList.forEach((v) => map.set(v.id, v))
+    return map
+  }, [variantList])
+
+  const handleStart = async () => {
+    if (active) {
+      navigate(`/workout/${active.id}`)
+      return
+    }
+    setStarting(true)
+    try {
+      const created = await sessions.start()
+      navigate(`/workout/${created.id}`)
+    } catch (err) {
+      setError(err.message)
+      setStarting(false)
+    }
+  }
+
+  const weekStats = useMemo(() => {
+    const [start, end] = weekRange(new Date())
+    const weekSessionIds = new Set(
+      sessionList
+        .filter((s) => new Date(s.started_at) >= start && new Date(s.started_at) < end)
+        .map((s) => s.id)
+    )
+    const weekSets = allSets.filter((s) => weekSessionIds.has(s.session_id))
+    const volKg = sessionVolumeKg(weekSets)
+    const volK = Math.round((display(volKg, unit) / 1000) * 10) / 10
+    return [
+      { label: 'Sessions', value: weekSessionIds.size, unit: '' },
+      { label: 'Sets', value: weekSets.length, unit: '' },
+      { label: 'Volume', value: volK, unit: `k ${unit}` },
+    ]
+  }, [sessionList, allSets, unit])
+
+  const sessionsByDay = useMemo(() => {
+    const map = new Map()
+    sessionList.forEach((s) => {
+      const key = ymd(s.started_at)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(s)
+    })
+    return map
+  }, [sessionList])
+
+  const monthDate = cursor || new Date()
+  const calMonth = monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+  const calendarCells = useMemo(() => {
+    const year = monthDate.getFullYear()
+    const month = monthDate.getMonth()
+    const firstOfMonth = new Date(year, month, 1)
+    const startOffset = firstOfMonth.getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const todayKey = ymd(new Date())
+    const cells = []
+    for (let i = 0; i < startOffset; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${month + 1}-${d}`
+      cells.push({ key, day: d, isToday: key === todayKey, sessions: sessionsByDay.get(key) || [] })
+    }
+    return cells
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthDate.getFullYear(), monthDate.getMonth(), sessionsByDay])
+
+  const weekRangeLabel = useMemo(() => {
+    const [start, end] = weekRange(new Date())
+    const endDisplay = new Date(end.getTime() - 86400000)
+    const opts = { month: 'short', day: 'numeric' }
+    return `${start.toLocaleDateString(undefined, opts)}–${endDisplay.toLocaleDateString(undefined, opts)}`
+  }, [])
+
+  const goalRows = useMemo(() => {
+    const [start, end] = weekRange(new Date())
+    const counts = { chest: 0, back: 0, arms: 0, legs: 0 }
+    sessionList
+      .filter((s) => new Date(s.started_at) >= start && new Date(s.started_at) < end)
+      .forEach((s) => {
+        const parts = new Set()
+        ;(s.exercise_order || []).forEach((vid) => {
+          const v = variantById.get(vid)
+          if (v?.body_part) parts.add(v.body_part)
+        })
+        parts.forEach((p) => {
+          counts[p] = (counts[p] || 0) + 1
+        })
+      })
+    return goals
+      .filter((g) => g.weekly_target > 0)
+      .sort((a, b) => PART_ORDER.indexOf(a.body_part) - PART_ORDER.indexOf(b.body_part))
+      .map((g) => {
+        const done = counts[g.body_part] || 0
+        const met = done >= g.weekly_target
+        return {
+          key: g.id,
+          label: PART_LABELS[g.body_part] || g.body_part,
+          count: `${done}/${g.weekly_target}`,
+          pct: Math.min(100, (done / g.weekly_target) * 100),
+          color: met ? 'var(--color-primary)' : '#4C8E96',
+        }
+      })
+  }, [sessionList, goals, variantById])
+
+  const startTitle = active ? 'Resume workout' : 'Start workout'
+  const startSub = active ? active.name || 'Session in progress' : 'Describe it, log it, done'
+
+  if (loading) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-background text-muted-foreground">
+        Loading…
+      </div>
+    )
+  }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-background px-6 text-foreground">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-[14px]">
-        <div className="text-[11px] text-muted-foreground">Signed in as</div>
-        <div className="mt-0.5 text-sm font-medium">{user?.email}</div>
-        <button onClick={signOut} className="mt-3 text-[13px] text-destructive">
-          Log out
-        </button>
+    <div className="min-h-full bg-background px-[18px] pt-[14px] pb-10 text-foreground">
+      {error && (
+        <div className="mb-3 rounded-[14px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center gap-[11px]">
+        <img src={logo} alt="" className="h-[38px] w-[38px] rounded-xl object-cover" />
+        <div>
+          <div className="text-base font-semibold leading-[1.1] tracking-[-0.01em]">StrengthAI</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">Train Smarter</div>
+        </div>
       </div>
+
+      <button
+        onClick={handleStart}
+        disabled={starting}
+        className="mt-[22px] flex w-full items-center justify-between rounded-[20px] bg-primary px-5 py-[18px] text-primary-foreground disabled:opacity-70"
+      >
+        <div className="text-left">
+          <div className="text-lg font-bold tracking-[-0.02em]">{startTitle}</div>
+          <div className="mt-0.5 text-[13px] opacity-70">{startSub}</div>
+        </div>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground text-primary">
+          <Play className="h-6 w-6 fill-current" />
+        </div>
+      </button>
+
+      <div className="mt-[10px] grid grid-cols-3 gap-2">
+        {weekStats.map((s) => (
+          <div key={s.label} className="rounded-[14px] border border-border bg-card px-3 py-[11px]">
+            <div className="font-mono text-[19px] font-medium tracking-[-0.03em]">
+              {s.value}
+              {s.unit && <span className="ml-0.5 font-sans text-[11px] text-muted-foreground">{s.unit}</span>}
+            </div>
+            <div className="mt-[3px] text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Training calendar
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCursor(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1))}
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg text-muted-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button onClick={() => setCursor(null)} className="px-1.5 text-[11px] text-muted-foreground">
+            Today
+          </button>
+          <button
+            onClick={() => setCursor(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1))}
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg text-muted-foreground"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-[10px] rounded-[18px] border border-border bg-card px-[13px] pt-[14px] pb-[11px]">
+        <div className="mb-[10px] text-[13px] font-semibold tracking-[-0.01em]">{calMonth}</div>
+        <div className="grid grid-cols-7 gap-[3px]">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <div key={i} className="text-center text-[9px] font-semibold tracking-[0.06em] text-[#5F665F]">
+              {d}
+            </div>
+          ))}
+          {calendarCells.map((cell, i) =>
+            cell ? (
+              <button
+                key={cell.key}
+                onClick={() => cell.sessions.length > 0 && setOpenDay(cell.key === openDay ? null : cell.key)}
+                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] ${
+                  cell.isToday ? 'ring-1 ring-primary' : ''
+                }`}
+              >
+                <span className="font-mono text-xs">{cell.day}</span>
+                {cell.sessions.length > 0 && <span className="h-1 w-1 rounded-full bg-primary" />}
+              </button>
+            ) : (
+              <div key={`empty-${i}`} />
+            )
+          )}
+        </div>
+      </div>
+
+      {openDay && (
+        <div className="mt-2 flex flex-col gap-2 rounded-[14px] border border-border bg-card p-3">
+          {(sessionsByDay.get(openDay) || []).map((s) => (
+            <button
+              key={s.id}
+              onClick={() => navigate(`/workout/${s.id}`)}
+              className="text-left text-sm"
+            >
+              <div className="font-medium">{s.name || 'Workout'}</div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(s.started_at).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Weekly goals
+        </div>
+        <div className="font-mono text-[11px] text-[#5F665F]">{weekRangeLabel}</div>
+      </div>
+
+      {goalRows.length > 0 ? (
+        <div className="mt-[10px] flex flex-col gap-[7px]">
+          {goalRows.map((g) => (
+            <div key={g.key} className="rounded-[14px] border border-border bg-card px-[13px] py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-medium">{g.label}</span>
+                <span className="font-mono text-[11px]" style={{ color: g.color }}>
+                  {g.count}
+                </span>
+              </div>
+              <div className="mt-[9px] h-[5px] overflow-hidden rounded-full bg-[#222724]">
+                <div className="h-full rounded-full" style={{ width: `${g.pct}%`, background: g.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-[10px] w-full rounded-[14px] border border-dashed border-border px-[18px] py-[18px] text-center text-[13px] text-muted-foreground">
+          No weekly goals yet — <span className="text-primary">set them in Settings</span>
+        </div>
+      )}
     </div>
   )
 }
