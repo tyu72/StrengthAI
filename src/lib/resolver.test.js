@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parse, resolve, scoreMods, suggest } from './resolver.js';
+import { parse, resolve, scoreMods, suggest, rawBase, isPlausibleExercise } from './resolver.js';
 
 // The registry a lifter might realistically have built up.
 const VARIANTS = [
@@ -33,6 +33,41 @@ describe('parse', () => {
 
   it('returns no movement when there is nothing to hang it on', () => {
     expect(parse('single arm cuff').base).toBeNull();
+  });
+
+  // Coverage regressions found in real gym use. Each of these silently failed once.
+  it('knows the machine movements people actually use', () => {
+    expect(parse('plate loaded chest press').base.k).toBe('chest press');
+    expect(parse('machine shoulder press').base.k).toBe('overhead press');
+    expect(parse('seated chest press').base.k).toBe('chest press');
+    expect(parse('hammer strength row').base.k).toBe('row');
+  });
+
+  it('does not let a bare angle word hijack the movement', () => {
+    // 'incline' is both an angle modifier and part of 'incline press'. A bare
+    // 'incline' must not outrank the actual lift being named.
+    expect(parse('incline dumbbell curl').base.k).toBe('curl');
+    expect(parse('incline curl').mods.map((m) => m.k)).toContain('incline');
+    expect(parse('incline dumbbell press').base.k).toBe('incline press');
+    expect(parse('incline bench press').base.k).toBe('incline press');
+  });
+
+  it('treats plate-loaded as its own implement, not just a machine', () => {
+    const mods = parse('plate loaded chest press').mods.map((m) => m.k);
+    expect(mods).toContain('plate loaded');
+  });
+
+  it('resolves a curl variant to curl plus a position modifier', () => {
+    const { base, mods } = parse('preacher curl');
+    expect(base.k).toBe('curl');
+    expect(mods.map((m) => m.k)).toContain('preacher');
+  });
+
+  it('keeps specific leg movements from collapsing into squat or curl', () => {
+    expect(parse('bulgarian split squat').base.k).toBe('lunge');
+    expect(parse('seated leg curl').base.k).toBe('hamstring curl');
+    expect(parse('nordic curl').base.k).toBe('nordic curl');
+    expect(parse('hanging leg raise').base.k).toBe('leg raise');
   });
 });
 
@@ -82,6 +117,38 @@ describe('resolve', () => {
     expect(r.raw).toBe('single arm cuff');
   });
 
+  it('still hands back the modifiers it understood on an unknown movement', () => {
+    // The UI logs unknowns as typed, so the mods it did recognise must survive.
+    const r = resolve('single arm cable thing', VARIANTS);
+    expect(r.status).toBe('unknown');
+    expect(r.mods).toEqual(['cable', 'single arm']);
+  });
+
+  it('normalises raw text into a usable base for log-as-typed', () => {
+    expect(rawBase('  Jefferson   Curl! ')).toBe('jefferson curl!');
+    expect(rawBase('Chest Supported Y Raise')).toBe('chest supported y raise');
+  });
+
+  it('matches a movement previously logged as typed, instead of forking it', () => {
+    // Logged-as-typed variants carry the whole phrase as their base. Without a raw-base
+    // check, "jefferson curl" parses to base "curl", never matches its own variant, and
+    // forks a new trend line on every session — the exact failure the resolver exists to
+    // prevent. It also means a repeat phrase never reaches the paid AI layer.
+    const registry = [{ id: 'raw1', base: 'jefferson curl', mods: [], uses: 2 }];
+    const r = resolve('jefferson curl', registry);
+    expect(r.status).toBe('match');
+    expect(r.match.id).toBe('raw1');
+  });
+
+  it('matches a raw variant regardless of casing and spacing', () => {
+    const registry = [{ id: 'raw2', base: 'tuck front lever raise', mods: [], uses: 1 }];
+    expect(resolve('  Tuck   Front Lever Raise ', registry).match.id).toBe('raw2');
+  });
+
+  it('still prefers a dictionary variant when no raw variant exists', () => {
+    expect(resolve('bench press', VARIANTS).match.id).toBe('v2');
+  });
+
   it('is insensitive to punctuation and casing', () => {
     const a = resolve('Feet-Up, Narrow-Grip Bench Press!', VARIANTS);
     expect(a.status).toBe('match');
@@ -99,5 +166,94 @@ describe('suggest', () => {
   });
   it('filters on partial words', () => {
     expect(suggest('tricep', VARIANTS).map((v) => v.id)).toEqual(['v3']);
+  });
+});
+
+describe('unexplained words', () => {
+  // The silent-merge bug: the dictionary knew 'squat' and 'barbell', dropped 'heel' and
+  // 'elevated', and merged a heel-elevated squat into the plain barbell squat trend at
+  // full confidence. Every word must now be accounted for.
+  it('reports words the dictionary could not account for', () => {
+    expect(parse('zercher barbell squat').unexplained).toEqual(['zercher']);
+    // 'press' is a movement noun the dictionary knows, so only 'landmine' is missing
+    expect(parse('landmine press').unexplained).toEqual(['landmine']);
+  });
+
+  it('accounts for every word of a fully understood description', () => {
+    expect(parse('feet up narrow grip bench press').unexplained).toEqual([]);
+    expect(parse('single arm cuff tricep extension').unexplained).toEqual([]);
+    expect(parse('chest supported machine row').unexplained).toEqual([]);
+  });
+
+  it('ignores filler and set notation', () => {
+    expect(parse('bench press with a narrow grip').unexplained).toEqual([]);
+    expect(parse('3x10 barbell squat').unexplained).toEqual([]);
+    expect(parse('warmup barbell squat').unexplained).toEqual([]);
+  });
+
+  it('flags needsAI so the resolver escalates instead of guessing', () => {
+    expect(resolve('zercher barbell squat', VARIANTS).needsAI).toBe(true);
+    expect(resolve('feet up narrow grip bench press', VARIANTS).needsAI).toBe(false);
+  });
+
+  // 'heel elevated' was the phrase that exposed the silent merge, and it is now in the
+  // stance vocabulary — so layer 1 keeps the trend lines apart on its own, with a real
+  // loading note and no model call. The escalation path above still covers everything
+  // the dictionary genuinely doesn't know.
+  it('handles heel elevated in the dictionary rather than escalating it', () => {
+    const r = resolve('heel elevated barbell squat', VARIANTS);
+    expect(r.mods).toContain('heel elevated');
+    expect(r.needsAI).toBe(false);
+    expect(r.note).toBeTruthy();
+  });
+
+  it('will not silently merge an unexplained variant into an existing trend line', () => {
+    const registry = [{ id: 'sq1', base: 'squat', mods: ['barbell'], uses: 9 }];
+    const r = resolve('heel elevated barbell squat', registry);
+    // must not be a full match on the plain barbell squat
+    expect(r.status).not.toBe('match');
+    // and the unexplained words survive as a tag, so the trend lines stay separate
+    expect(r.mods).toContain('heel elevated');
+  });
+
+  it('still matches the plain version exactly', () => {
+    const registry = [{ id: 'sq1', base: 'squat', mods: ['barbell'], uses: 9 }];
+    const r = resolve('barbell squat', registry);
+    expect(r.status).toBe('match');
+    expect(r.needsAI).toBe(false);
+  });
+});
+
+describe('isPlausibleExercise', () => {
+  it('rejects things that cannot be an exercise', () => {
+    expect(isPlausibleExercise('a').ok).toBe(false);
+    expect(isPlausibleExercise('!!!!').ok).toBe(false);
+    expect(isPlausibleExercise('aaaaaaa').ok).toBe(false);
+    expect(isPlausibleExercise('asdfgh').ok).toBe(false);
+    expect(isPlausibleExercise('qwerty').ok).toBe(false);
+    expect(isPlausibleExercise('123456').ok).toBe(false);
+    expect(isPlausibleExercise('x'.repeat(200)).ok).toBe(false);
+  });
+
+  it('always gives display-ready copy on rejection', () => {
+    const r = isPlausibleExercise('!!');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/[a-z]/);
+    expect(r.reason.endsWith('.')).toBe(true);
+  });
+
+  it('lets real descriptions through, including obscure and misspelled ones', () => {
+    expect(isPlausibleExercise('heel elevated barbell squat').ok).toBe(true);
+    expect(isPlausibleExercise('jefferson curl').ok).toBe(true);
+    expect(isPlausibleExercise('zercher squat').ok).toBe(true);
+    expect(isPlausibleExercise('benhc pres').ok).toBe(true);
+    expect(isPlausibleExercise('kroc row').ok).toBe(true);
+    expect(isPlausibleExercise('seal row').ok).toBe(true);
+  });
+
+  it('does not reject a plausible phrase just because the dictionary lacks it', () => {
+    // Semantic judgment is the model's job. This gate only catches impossible input.
+    expect(isPlausibleExercise('landmine press').ok).toBe(true);
+    expect(isPlausibleExercise('half kneeling cable row').ok).toBe(true);
   });
 });

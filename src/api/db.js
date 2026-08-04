@@ -56,7 +56,7 @@ export const variants = {
    * does the deduping — two clients racing on the same description cannot fork
    * the trend line.
    */
-  ensure: async ({ base, mods = [], muscle, body_part, source_text }) => {
+  ensure: async ({ base, mods = [], muscle, body_part, source_text, resolved_by, load_note, confidence }) => {
     const row = {
       user_id: await uid(),
       base,
@@ -64,6 +64,12 @@ export const variants = {
       muscle,
       body_part,
       source_text,
+      // Provenance (migration 002). Only sent when known — an upsert that omits a column
+      // leaves it alone, so re-logging a variant from the dictionary can't wipe the
+      // loading explanation the AI wrote the first time round.
+      ...(resolved_by ? { resolved_by } : {}),
+      ...(load_note ? { load_note } : {}),
+      ...(confidence ? { confidence } : {}),
     };
     return supabase.from('exercise_variants')
       .upsert(row, { onConflict: 'user_id,base,mods' })

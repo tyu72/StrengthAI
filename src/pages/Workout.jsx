@@ -201,10 +201,29 @@ export default function Workout() {
     }
   }
 
-  const handleAddExercise = async ({ variantId, base, mods, muscle, bodyPart, sourceText }) => {
+  const handleAddExercise = async ({
+    variantId,
+    base,
+    mods,
+    muscle,
+    bodyPart,
+    sourceText,
+    resolvedBy,
+    loadNote,
+    confidence,
+  }) => {
     let vid = variantId
     if (!vid) {
-      const created = await variantsApi.ensure({ base, mods, muscle, body_part: bodyPart, source_text: sourceText })
+      const created = await variantsApi.ensure({
+        base,
+        mods,
+        muscle,
+        body_part: bodyPart,
+        source_text: sourceText,
+        resolved_by: resolvedBy,
+        load_note: loadNote,
+        confidence,
+      })
       vid = created.id
       setVariantList((list) => (list.some((v) => v.id === created.id) ? list : [...list, created]))
     }

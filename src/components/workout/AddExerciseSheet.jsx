@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { Sheet } from '@/components/Sheet'
-import { resolve, suggest, canonicalLabel } from '@/lib/resolver'
+import { resolve, suggest, canonicalLabel, rawBase } from '@/lib/resolver'
+import { resolveExercise } from '@/api/resolveExercise'
 import { sets as setsApi } from '@/api/db'
 import { display } from '@/lib/units'
 
@@ -11,23 +12,56 @@ const pluralize = (n) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
 // syntax with real resolver vocabulary (grip/attachment/stance) rather than a blank box.
 const EXAMPLES = ['single arm cuff tricep extension', 'feet up narrow grip bench press', 'romanian deadlift']
 
+// exercise_variants.resolved_by only allows dictionary/ai/manual. A cache hit is an AI
+// answer someone already paid for, so it records as 'ai' — the column is about how the
+// movement was worked out, not which layer served it this time.
+const resolvedByFor = (source) => (source === 'dictionary' ? 'dictionary' : 'ai')
+
 function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
-  if (result.status === 'unknown') {
+  // Genuinely not an exercise. The only status that blocks logging.
+  if (result.status === 'rejected') {
     return (
       <div className="mt-[10px] rounded-[18px] border border-border bg-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#F2B544]">
-          Needs a movement name
+          Not an exercise
         </div>
         <div className="mt-2 text-[17px] font-bold tracking-[-0.02em]">&quot;{result.raw}&quot;</div>
-        <div className="mt-[9px] text-[12.5px] leading-[1.55] text-muted-foreground">
-          I can read modifiers but not the movement. Add the lift itself — &quot;cuff tricep extension&quot;,
-          &quot;feet up bench press&quot;.
-        </div>
+        <div className="mt-[9px] text-[12.5px] leading-[1.55] text-muted-foreground">{result.reason}</div>
         <button
           onClick={onRetry}
           className="mt-[14px] w-full rounded-[12px] bg-primary py-[11px] text-[13px] font-bold text-primary-foreground"
         >
           Try again
+        </button>
+      </div>
+    )
+  }
+
+  // Offline, capped, or out of credit. Never a dead end — the set still gets logged, and
+  // the raw phrase becomes a variant that future identical descriptions match into.
+  if (result.status === 'unresolved') {
+    return (
+      <div className="mt-[10px] rounded-[18px] border border-border bg-card p-4">
+        <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#4C8E96]">
+          Log it as typed
+        </div>
+        <div className="mt-2 text-[17px] font-bold tracking-[-0.02em]">{rawBase(result.raw)}</div>
+        <div className="mt-[9px] text-[12.5px] leading-[1.55] text-muted-foreground">{result.reason}</div>
+        <button
+          onClick={() =>
+            onConfirm({
+              base: rawBase(result.raw),
+              mods: [],
+              muscle: null,
+              bodyPart: null,
+              sourceText: result.raw,
+              resolvedBy: 'manual',
+            })
+          }
+          disabled={submitting}
+          className="mt-[14px] w-full rounded-[12px] bg-primary py-[11px] text-[13px] font-bold text-primary-foreground disabled:opacity-60"
+        >
+          Add to workout
         </button>
       </div>
     )
@@ -41,6 +75,10 @@ function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
   const borderColor = matched ? 'rgba(168,201,162,.3)' : close ? 'rgba(242,181,68,.32)' : '#272C29'
   const bgColor = matched ? 'rgba(168,201,162,.06)' : close ? 'rgba(242,181,68,.05)' : '#171A18'
   const statusLabel = matched ? 'Matched to an existing variant' : close ? 'Close, but not the same thing' : 'New variant'
+
+  // A cached answer was inferred by the model too, so it carries the same caveat.
+  const inferred = result.source === 'ai' || result.source === 'cache'
+  const lowConfidence = inferred && result.confidence === 'low'
 
   let trend
   if (matched) {
@@ -63,6 +101,9 @@ function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
       muscle: result.base.m,
       bodyPart: result.base.p,
       sourceText: result.raw,
+      resolvedBy: resolvedByFor(result.source),
+      loadNote: result.note || null,
+      confidence: result.confidence || null,
     })
   const confirmExisting = () => onConfirm({ variantId: result.match.id })
 
@@ -90,6 +131,12 @@ function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
           <div className="mt-[5px] text-[12.5px] leading-[1.55] text-[#C7CCC6]">{result.note}</div>
         </div>
       )}
+      {lowConfidence && (
+        <div className="mt-[9px] text-[11px] leading-[1.5] text-[#8A928C]">
+          The coach worked this one out from the name rather than recognising it — worth a look before you trust the
+          loading note.
+        </div>
+      )}
       <div className="mt-[14px] flex gap-2">
         {close && (
           <button
@@ -114,14 +161,16 @@ function ResolutionCard({ result, unit, submitting, onConfirm, onRetry }) {
 
 export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) {
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState(null)
+  const [resolved, setResolved] = useState(null)
+  const [resolving, setResolving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!open) {
       setQuery('')
-      setResult(null)
+      setResolved(null)
+      setResolving(false)
       setError(null)
     }
   }, [open])
@@ -129,19 +178,41 @@ export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) 
   const suggestions = useMemo(() => suggest(query, variants, 8), [query, variants])
   const suggestTitle = query.trim() ? 'From your history' : 'Most logged'
 
+  // Layer 1 only. Free, offline, instant — so it runs on every keystroke. Layers 2 and 3
+  // are deliberately NOT here: resolving as you type would send "heel", "heel el",
+  // "heel elev" to the model, and every prefix is a novel phrase that gets cached and
+  // billed. They run from runResolve, on Enter or the Resolve button.
+  const live = useMemo(() => {
+    const text = query.trim()
+    if (!text) return null
+    return { ...resolve(text, variants), source: 'dictionary', confidence: 'high' }
+  }, [query, variants])
+
+  const localUnknown = live?.status === 'unknown'
+  const preview = !resolved && live && !localUnknown ? live : null
+  const shown = resolved ?? preview
+
   const runResolve = async () => {
     const text = query.trim()
-    if (!text) return
-    const r = resolve(text, variants)
-    if (r.status === 'match' && r.match) {
-      try {
-        const hist = await setsApi.forVariant(r.match.id)
-        r.lastSet = hist.length ? hist[hist.length - 1] : null
-      } catch {
-        r.lastSet = null
+    if (!text || resolving) return
+    setResolving(true)
+    setError(null)
+    try {
+      const r = await resolveExercise(text, variants)
+      if (r.status === 'match' && r.match) {
+        try {
+          const hist = await setsApi.forVariant(r.match.id)
+          r.lastSet = hist.length ? hist[hist.length - 1] : null
+        } catch {
+          r.lastSet = null
+        }
       }
+      setResolved(r)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResolving(false)
     }
-    setResult(r)
   }
 
   const confirm = async (payload) => {
@@ -171,18 +242,19 @@ export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) 
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
-              setResult(null)
+              setResolved(null)
             }}
             onKeyDown={(e) => e.key === 'Enter' && runResolve()}
             placeholder="single arm cuff tricep extension"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/50"
           />
-          {query.trim() && !result && (
+          {query.trim() && !resolved && (
             <button
               onClick={runResolve}
-              className="shrink-0 rounded-[10px] bg-primary px-3 py-[7px] text-[12.5px] font-bold text-primary-foreground"
+              disabled={resolving}
+              className="flex shrink-0 items-center justify-center rounded-[10px] bg-primary px-3 py-[7px] text-[12.5px] font-bold text-primary-foreground disabled:opacity-60"
             >
-              Resolve
+              {resolving ? <Loader2 className="h-[15px] w-[15px] animate-spin" /> : 'Resolve'}
             </button>
           )}
         </div>
@@ -195,17 +267,36 @@ export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) 
           </div>
         )}
 
-        {result && (
+        {resolving && (
+          <div className="mt-[10px] flex items-center gap-[10px] rounded-[18px] border border-border bg-card p-4">
+            <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin text-primary" />
+            <div className="text-[12.5px] leading-[1.5] text-muted-foreground">
+              {localUnknown ? 'Asking the coach…' : 'Checking your history…'}
+            </div>
+          </div>
+        )}
+
+        {!resolving && shown && (
           <ResolutionCard
-            result={result}
+            result={shown}
             unit={unit}
             submitting={submitting}
             onConfirm={confirm}
-            onRetry={() => setResult(null)}
+            onRetry={() => {
+              setResolved(null)
+              setQuery('')
+            }}
           />
         )}
 
-        {!result && suggestions.length > 0 && (
+        {!resolving && !resolved && localUnknown && (
+          <div className="mt-[10px] rounded-[14px] border border-dashed border-border px-[13px] py-3 text-[12px] leading-[1.55] text-muted-foreground">
+            Not in the dictionary yet. Press Enter, or tap Resolve, and the coach will work it out — that only takes
+            a call the first time anyone describes it this way.
+          </div>
+        )}
+
+        {!resolved && suggestions.length > 0 && (
           <>
             <div className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
               {suggestTitle}
@@ -231,7 +322,7 @@ export function AddExerciseSheet({ open, onOpenChange, variants, unit, onAdd }) 
           </>
         )}
 
-        {!result && suggestions.length === 0 && (
+        {!resolved && suggestions.length === 0 && !query.trim() && (
           <div className="mt-4">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
               Try something like

@@ -762,29 +762,58 @@ class Component extends DCLogic {
 
   BASES = [
     { k: 'bench press', a: ['bench press', 'bench', 'flat press'], m: 'pectorals', p: 'chest' },
-    { k: 'incline press', a: ['incline press', 'incline bench', 'incline'], m: 'pectorals', p: 'chest' },
-    { k: 'chest fly', a: ['chest fly', 'fly', 'flye', 'pec deck'], m: 'pectorals', p: 'chest' },
-    { k: 'overhead press', a: ['overhead press', 'ohp', 'shoulder press', 'military press'], m: 'delts', p: 'arms' },
-    { k: 'lateral raise', a: ['lateral raise', 'side raise', 'lat raise'], m: 'delts', p: 'arms' },
-    { k: 'rear delt fly', a: ['rear delt fly', 'reverse fly', 'rear delt'], m: 'delts', p: 'arms' },
+    { k: 'incline press', a: ['incline press', 'incline bench'], m: 'pectorals', p: 'chest' },
+    { k: 'decline press', a: ['decline press', 'decline bench'], m: 'pectorals', p: 'chest' },
+    { k: 'chest press', a: ['chest press'], m: 'pectorals', p: 'chest' },
+    { k: 'push-up', a: ['push up', 'pushup', 'press up'], m: 'pectorals', p: 'chest' },
+    { k: 'chest fly', a: ['chest fly', 'fly', 'flye', 'pec deck', 'pec dec'], m: 'pectorals', p: 'chest' },
+    { k: 'overhead press', a: ['overhead press', 'ohp', 'shoulder press', 'military press', 'strict press'], m: 'delts', p: 'arms' },
+    { k: 'push press', a: ['push press'], m: 'delts', p: 'arms' },
+    { k: 'arnold press', a: ['arnold press'], m: 'delts', p: 'arms' },
+    { k: 'lateral raise', a: ['lateral raise', 'side raise', 'lat raise', 'side lateral'], m: 'delts', p: 'arms' },
+    { k: 'front raise', a: ['front raise'], m: 'delts', p: 'arms' },
+    { k: 'upright row', a: ['upright row'], m: 'delts', p: 'arms' },
+    { k: 'rear delt fly', a: ['rear delt fly', 'reverse fly', 'rear delt', 'reverse pec deck'], m: 'delts', p: 'arms' },
     { k: 'face pull', a: ['face pull'], m: 'upper back', p: 'back' },
-    { k: 'tricep extension', a: ['tricep extension', 'triceps extension', 'overhead extension', 'skull crusher', 'skullcrusher'], m: 'triceps', p: 'arms' },
-    { k: 'pushdown', a: ['pushdown', 'press down', 'pressdown'], m: 'triceps', p: 'arms' },
-    { k: 'lat pulldown', a: ['lat pulldown', 'pulldown'], m: 'lats', p: 'back' },
+    { k: 'tricep extension', a: ['tricep extension', 'triceps extension', 'overhead extension', 'skull crusher', 'skullcrusher', 'french press', 'jm press'], m: 'triceps', p: 'arms' },
+    { k: 'pushdown', a: ['pushdown', 'push down', 'press down', 'pressdown'], m: 'triceps', p: 'arms' },
+    { k: 'tricep kickback', a: ['kickback', 'tricep kickback'], m: 'triceps', p: 'arms' },
+    { k: 'lat pulldown', a: ['lat pulldown', 'pulldown', 'lat pull down'], m: 'lats', p: 'back' },
+    { k: 'straight-arm pulldown', a: ['straight arm pulldown', 'straight arm pull down'], m: 'lats', p: 'back' },
     { k: 'pull-up', a: ['pull up', 'pullup', 'chin up', 'chinup'], m: 'lats', p: 'back' },
-    { k: 'row', a: ['row', 'barbell row', 'cable row', 'seated row', 't bar row', 'chest supported row'], m: 'upper back', p: 'back' },
+    { k: 'row', a: ['row', 'barbell row', 'cable row', 'seated row', 't bar row', 'chest supported row', 'pendlay row', 'meadows row'], m: 'upper back', p: 'back' },
     { k: 'shrug', a: ['shrug'], m: 'traps', p: 'back' },
-    { k: 'curl', a: ['curl', 'bicep curl', 'biceps curl', 'preacher curl', 'hammer curl'], m: 'biceps', p: 'arms' },
-    { k: 'squat', a: ['squat', 'back squat', 'front squat', 'hack squat'], m: 'quads', p: 'legs' },
+    { k: 'back extension', a: ['back extension', 'hyperextension', 'hyper extension'], m: 'spinal erectors', p: 'back' },
+    { k: 'good morning', a: ['good morning'], m: 'hamstrings', p: 'back' },
+    { k: 'curl', a: ['curl', 'bicep curl', 'biceps curl', 'preacher curl', 'hammer curl', 'concentration curl', 'spider curl', 'drag curl'], m: 'biceps', p: 'arms' },
+    { k: 'reverse curl', a: ['reverse curl'], m: 'forearms', p: 'arms' },
+    { k: 'wrist curl', a: ['wrist curl', 'forearm curl'], m: 'forearms', p: 'arms' },
+    { k: 'squat', a: ['squat', 'back squat', 'front squat', 'hack squat', 'goblet squat', 'belt squat'], m: 'quads', p: 'legs' },
     { k: 'leg press', a: ['leg press'], m: 'quads', p: 'legs' },
-    { k: 'leg extension', a: ['leg extension', 'knee extension'], m: 'quads', p: 'legs' },
+    { k: 'leg extension', a: ['leg extension', 'knee extension', 'quad extension'], m: 'quads', p: 'legs' },
     { k: 'romanian deadlift', a: ['romanian deadlift', 'rdl', 'stiff leg deadlift'], m: 'hamstrings', p: 'legs' },
-    { k: 'deadlift', a: ['deadlift'], m: 'hamstrings', p: 'legs' },
+    { k: 'deadlift', a: ['deadlift', 'rack pull'], m: 'hamstrings', p: 'legs' },
     { k: 'hamstring curl', a: ['hamstring curl', 'leg curl', 'ham curl'], m: 'hamstrings', p: 'legs' },
+    { k: 'nordic curl', a: ['nordic curl', 'nordic ham curl'], m: 'hamstrings', p: 'legs' },
     { k: 'hip thrust', a: ['hip thrust', 'glute bridge'], m: 'glutes', p: 'legs' },
+    { k: 'glute kickback', a: ['glute kickback', 'cable kickback', 'hip extension'], m: 'glutes', p: 'legs' },
+    { k: 'hip abduction', a: ['hip abduction', 'abduction', 'abductor'], m: 'glutes', p: 'legs' },
+    { k: 'hip adduction', a: ['hip adduction', 'adduction', 'adductor'], m: 'adductors', p: 'legs' },
     { k: 'lunge', a: ['lunge', 'split squat', 'bulgarian split squat'], m: 'quads', p: 'legs' },
-    { k: 'calf raise', a: ['calf raise', 'calve raise'], m: 'calves', p: 'legs' },
-    { k: 'dip', a: ['dip', 'dips'], m: 'triceps', p: 'arms' }
+    { k: 'step-up', a: ['step up', 'stepup'], m: 'quads', p: 'legs' },
+    { k: 'calf raise', a: ['calf raise', 'calve raise', 'calf press'], m: 'calves', p: 'legs' },
+    { k: 'dip', a: ['dip', 'dips'], m: 'triceps', p: 'arms' },
+    { k: 'crunch', a: ['crunch', 'cable crunch', 'sit up', 'situp'], m: 'abs', p: null },
+    { k: 'leg raise', a: ['leg raise', 'hanging leg raise', 'knee raise'], m: 'abs', p: null },
+    { k: 'ab wheel', a: ['ab wheel', 'ab rollout', 'rollout'], m: 'abs', p: null },
+    { k: 'plank', a: ['plank'], m: 'abs', p: null },
+    { k: 'pallof press', a: ['pallof press', 'pallof'], m: 'obliques', p: null },
+    { k: 'woodchop', a: ['woodchop', 'wood chop'], m: 'obliques', p: null },
+    { k: 'clean', a: ['clean', 'power clean', 'hang clean'], m: 'full body', p: null },
+    { k: 'snatch', a: ['snatch', 'power snatch'], m: 'full body', p: null },
+    { k: 'thruster', a: ['thruster'], m: 'full body', p: null },
+    { k: 'farmer carry', a: ['farmer carry', 'farmers carry', 'farmer walk', 'suitcase carry'], m: 'traps', p: null },
+    { k: 'sled push', a: ['sled push', 'prowler push', 'sled'], m: 'quads', p: null }
   ];
 
   MODS = [
@@ -807,6 +836,14 @@ class Component extends DCLogic {
     { k: 'barbell', c: 'implement', a: ['barbell', 'bb'], n: '' },
     { k: 'cable', c: 'implement', a: ['cable'], n: 'Constant tension across the range — stack numbers are not comparable to free weight.' },
     { k: 'machine', c: 'implement', a: ['machine', 'selectorized'], n: 'Fixed path; the machine carries the stability, so loads run higher than the free-weight version.' },
+    { k: 'plate loaded', c: 'implement', a: ['plate loaded', 'plateloaded', 'hammer strength', 'iso lateral'], n: 'Plate-loaded machines report the plates you hung, not the resistance at your hands — leverage and the carriage weight mean this number is only comparable to itself.' },
+    { k: 'assisted', c: 'load', a: ['assisted'], n: 'Assistance is subtracted from bodyweight, so the number goes DOWN as you get stronger. This trend line runs backwards from every other one.' },
+    { k: 'weighted', c: 'load', a: ['weighted', 'added weight'], n: 'Added load on top of bodyweight — only the added weight is tracked, so bodyweight changes move this trend without any change in strength.' },
+    { k: 'bodyweight', c: 'load', a: ['bodyweight', 'body weight'], n: '' },
+    { k: 'preacher', c: 'angle', a: ['preacher'], n: 'The pad blocks any swing and puts peak tension in the stretched position — expect less load than a standing curl.' },
+    { k: 'spider', c: 'angle', a: ['spider'], n: '' },
+    { k: 'incline', c: 'angle', a: ['incline'], n: 'On an incline the stretched position carries the load, which usually means a lighter weight than the flat or standing version.' },
+    { k: 'decline', c: 'angle', a: ['decline'], n: '' },
     { k: 'smith', c: 'implement', a: ['smith machine', 'smith'], n: 'Fixed bar path removes the balance requirement.' },
     { k: 'kettlebell', c: 'implement', a: ['kettlebell', 'kb'], n: '' },
     { k: 'seated', c: 'angle', a: ['seated'], n: '' },
@@ -1047,7 +1084,7 @@ class Component extends DCLogic {
     if (res.status === 'match' || res.useMatch) { vid = res.match.id; }
     else {
       vid = this.uid();
-      const nv = { id: vid, base: res.base.k, mods: res.mods, m: res.base.m, p: res.base.p, uses: 0, created: Date.now() };
+      const nv = { id: vid, base: res.base.k, mods: res.mods, m: res.base.m, p: res.base.p, uses: 0, created: Date.now(), unrecognized: !!res.unrecognized };
       this.mut(s => { s.variants.push(nv); });
     }
     const sid = this.state.sessionId, tid = this.state.tplId;
@@ -1261,7 +1298,22 @@ class Component extends DCLogic {
       V.hasResolution = !!r;
       if (r) {
         if (!r.ok) {
-          V.res = { bd: 'rgba(242,181,68,.35)', bg: 'rgba(242,181,68,.05)', ac: '#F2B544', icon: 'help', status: 'Needs a movement name', name: '"' + r.raw + '"', chips: [], trend: 'I can read modifiers but not the movement. Add the lift itself — "cuff tricep extension", "feet up bench press".', hasNote: false, cta: 'Try again', confirm: () => this.setState({ resolution: null }), showAlt: false };
+          // Never a dead end. The dictionary being short is the app's problem, not the
+          // lifter's — log it as typed and it still gets a trend line that future
+          // identical descriptions match into.
+          const raw = String(r.raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const rawMods = this.parse(r.raw).mods.map(m => m.k);
+          V.res = {
+            bd: 'rgba(242,181,68,.35)', bg: 'rgba(242,181,68,.05)', ac: '#F2B544', icon: 'edit_note',
+            status: 'Not a movement I know',
+            name: this.title(raw),
+            chips: rawMods.map(m => ({ t: m })),
+            trend: 'I can\u2019t tell you how this one loads, so I won\u2019t pretend to. Logged as typed it still gets its own trend line, and identical descriptions will match into it from now on.',
+            hasNote: false,
+            showAlt: true, altLabel: 'Edit', altPick: () => this.setState({ resolution: null }),
+            cta: 'Log it as typed',
+            confirm: () => this.addVariantFromResolution({ ok: true, status: 'new', base: { k: raw, m: null, p: null }, mods: rawMods, match: null, unrecognized: true }, target)
+          };
         } else {
           const matched = r.status === 'match', close = r.status === 'close';
           const mv = r.match;
