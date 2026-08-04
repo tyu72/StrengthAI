@@ -15,8 +15,8 @@ faster the more it is used.
 
 ## What it costs
 
-About a tenth of a cent per novel phrase. A lifter's first month is 40–60 new movements,
-so roughly 5 cents each, then it falls away as their vocabulary is covered.
+About two tenths of a cent per novel phrase. A lifter's first month is 40–60 new
+movements, so roughly 10 cents each, then it falls away as their vocabulary is covered.
 
 Credit is **prepaid**. Buy $5, leave auto-reload OFF, and $5 is a hard ceiling — the
 balance cannot go negative. If it ever ran out, the resolver falls back to the dictionary
@@ -56,6 +56,23 @@ Then type `chicken parmesan`. It should be refused with a sentence telling you w
 type instead.
 
 ## Guardrails
+
+**Every word must be accounted for** (`parse().unexplained`, client-side, free). A word the
+dictionary can't explain — not the movement, not a known modifier, not a stopword — sets
+`needsAI`, and the resolver escalates to the cache and the model instead of answering from
+a partial reading. Without it the dictionary silently drops what it doesn't recognise: it
+read `heel elevated barbell squat` as a plain barbell squat, dropped `heel` and `elevated`,
+and merged two different lifts into one trend line at full confidence. If the AI is
+unreachable the local reading is still used, but the leftover words ride along as a
+modifier tag, so the worst case is an odd-looking chip rather than a silent merge. Movement
+nouns are exempt (`landmine press` is missing `landmine`, not `press`) — an unrecognised
+*variation* of a known lift shouldn't read as an unexplained load.
+
+**Pin a dated model, never a `-latest` alias.** Aliases follow retirements, and to the
+client a 404 is indistinguishable from being offline — both surface as "I could not reach
+the coach just now", so the whole AI layer degrades silently and looks like bad wifi.
+`RESOLVER_MODEL` overrides a deployment without a redeploy, but the fallback in
+`index.ts` is what a fresh deploy elsewhere gets, so it has to be pinned too.
 
 **Junk filter** (`isPlausibleExercise`, client-side, free) rejects input that cannot be an
 exercise — too short, no vowels, keyboard runs, repeated characters. Deliberately

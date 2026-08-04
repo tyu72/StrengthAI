@@ -13,7 +13,15 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const MODEL = Deno.env.get('RESOLVER_MODEL') ?? 'claude-3-5-haiku-latest';
+// Pin a dated model here, not a `-latest` alias. Aliases follow retirements: when the
+// model behind one is retired the API starts returning 404, and on the client a 404 is
+// indistinguishable from being offline — both land in the same catch and surface as
+// "I could not reach the coach just now", so the AI layer fails silently and looks like
+// bad wifi. That is exactly how `claude-3-5-haiku-latest` broke here, months after the
+// model it pointed at was retired. The most pinned form of the current Haiku is
+// `claude-haiku-4-5-20251001`; the version alias below is a deliberate middle ground,
+// since it tracks Haiku 4.5 only and will never jump to a new generation on its own.
+const MODEL = Deno.env.get('RESOLVER_MODEL') ?? 'claude-haiku-4-5';
 const DAILY_CAP = Number(Deno.env.get('RESOLVER_DAILY_CAP') ?? 50);
 
 const CORS = {
