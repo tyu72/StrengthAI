@@ -1,229 +1,350 @@
-// Supabase Edge Function: resolve-exercise
-//
-// The AI half of the resolver. The client tries its local dictionary and the shared
-// alias cache first, so this only runs for phrasing nobody has ever typed before.
-//
-// Deploy:
-//   supabase functions deploy resolve-exercise
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-//
-// Why server-side: the API key cannot ship in the browser bundle. This also enforces a
-// signed-in caller and a per-user daily cap, so the key can never be used as an open,
-// billable proxy by anyone who finds the URL.
+/**
+ * resolve-exercise — turns a free-text description into a canonical exercise variant.
+ *
+ * The model is the authority. There is no dictionary fallback and no hand-written alias
+ * list; an earlier design had both, and they outranked the model on any phrase they
+ * happened to touch, which is how "jm press" became a tricep extension and
+ * "heel elevated barbell squat" silently merged into a plain barbell squat.
+ *
+ * Order of operations:
+ *   1. Junk filter (free)          — obvious nonsense never reaches the model
+ *   2. Alias cache (free)          — anyone resolved this phrase before? Done.
+ *   3. Model call (~$0.002)        — one call, cached forever after
+ *
+ * Runs server-side so the API key is never in the browser, and so the per-user monthly cap
+ * cannot be edited by the client.
+ */
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// Pin a dated model here, not a `-latest` alias. Aliases follow retirements: when the
-// model behind one is retired the API starts returning 404, and on the client a 404 is
-// indistinguishable from being offline — both land in the same catch and surface as
-// "I could not reach the coach just now", so the AI layer fails silently and looks like
-// bad wifi. That is exactly how `claude-3-5-haiku-latest` broke here, months after the
-// model it pointed at was retired. The most pinned form of the current Haiku is
-// `claude-haiku-4-5-20251001`; the version alias below is a deliberate middle ground,
-// since it tracks Haiku 4.5 only and will never jump to a new generation on its own.
+// Pinned to a version alias, never `-latest`.
+//
+// `claude-3-5-haiku-latest` broke this function once already: the underlying dated model
+// retired, calls started returning 404, and because a 404 and a network failure land in the
+// same catch on the client, the AI layer degraded to "I could not reach the coach just now"
+// and read as bad wifi for days. A version alias tracks one generation and cannot silently
+// jump; override via the RESOLVER_MODEL secret if it ever needs pinning harder.
 const MODEL = Deno.env.get('RESOLVER_MODEL') ?? 'claude-haiku-4-5';
-const DAILY_CAP = Number(Deno.env.get('RESOLVER_DAILY_CAP') ?? 50);
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const MONTHLY_CALL_CAP = 400;
+
+const BODY_PARTS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
+
+const MUSCLES = [
+  'pectorals', 'upper chest',
+  'lats', 'upper back', 'traps', 'lower back',
+  'front delts', 'side delts', 'rear delts',
+  'biceps', 'triceps', 'brachialis', 'forearms',
+  'quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors',
+  'abs', 'obliques',
+];
+
+const VOCAB_BASES = [
+  'bench press', 'incline press', 'decline press', 'chest press', 'chest fly', 'push-up', 'dip',
+  'overhead press', 'push press', 'arnold press', 'lateral raise', 'front raise',
+  'upright row', 'rear delt fly', 'face pull',
+  'lat pulldown', 'straight-arm pulldown', 'pull-up', 'row', 'pullover', 'shrug',
+  'back extension', 'good morning',
+  'curl', 'reverse curl', 'preacher curl', 'wrist curl', 'tricep extension', 'pushdown',
+  'tricep kickback', 'skull crusher', 'jm press',
+  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'deadlift',
+  'rack pull', 'hamstring curl', 'nordic curl', 'hip thrust', 'glute kickback',
+  'hip abduction', 'hip adduction', 'lunge', 'split squat', 'step-up', 'calf raise',
+  'crunch', 'leg raise', 'ab wheel', 'plank', 'pallof press', 'woodchop',
+  'clean', 'snatch', 'thruster', 'farmer carry', 'sled push', 'kettlebell swing',
+];
+
+const VOCAB_MODS: Record<string, string[]> = {
+  implement: ['barbell', 'dumbbell', 'cable', 'machine', 'smith machine', 'kettlebell',
+    'plate loaded', 'bodyweight', 'band', 'landmine', 'trap bar', 'ez bar', 'safety bar'],
+  attachment: ['rope', 'straight bar', 'v-bar', 'single handle', 'cuff', 'wide bar',
+    'lat bar', 'stirrup'],
+  grip: ['narrow grip', 'wide grip', 'neutral grip', 'supinated', 'pronated', 'mixed grip',
+    'false grip', 'hook grip'],
+  stance: ['feet up', 'heel elevated', 'toes elevated', 'sumo', 'conventional', 'staggered',
+    'wide stance', 'narrow stance', 'b stance'],
+  angle: ['seated', 'standing', 'lying', 'prone', 'incline', 'decline', 'chest supported',
+    'bent over', 'kneeling', 'high to low', 'low to high', 'behind the neck', 'front rack',
+    'zercher', 'overhead'],
+  tempo: ['paused', 'slow eccentric', 'explosive', 'cluster', '1.5 rep'],
+  rom: ['deficit', 'partial', 'lengthened partial', 'pin', 'block', 'floor', 'full rom'],
+  load: ['banded', 'chains', 'accommodating resistance'],
+  side: ['single arm', 'single leg', 'alternating'],
 };
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+const norm = (s: unknown) =>
+  String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/**
- * The prompt has two jobs: reject anything that isn't a resistance-training movement,
- * and keep trend lines continuous for anything that is.
- *
- * Continuity is why it's handed the known vocabulary and the lifter's own registry: a
- * model naming things freely would return "Barbell Bench Press" today and "Bench Press
- * (Barbell)" next week, forking the trend line — exactly the failure the resolver exists
- * to prevent.
- */
-function buildPrompt(text: string, knownBases: string[], knownMods: string[], userBases: string[]) {
-  return `A lifter typed this into a workout logger, describing an exercise they are about to log:
+const normalizePhrase = (s: unknown) =>
+  String(s ?? '').toLowerCase().replace(/[^a-z0-9\s+-]/g, ' ').replace(/\s+/g, ' ').trim();
 
-"${text}"
+function buildPrompt(registry: Array<{ base: string; mods: string[] }>) {
+  const modLines = Object.entries(VOCAB_MODS)
+    .map(([group, list]) => `  ${group}: ${list.join(', ')}`)
+    .join('\n');
 
-STEP 1 — Decide whether this is a resistance-training exercise at all.
+  const known = registry.length
+    ? registry.slice(0, 40).map((v) => `  ${v.base}${v.mods?.length ? ` [${v.mods.join(', ')}]` : ''}`).join('\n')
+    : '  (none yet)';
 
-Reject it if it is: not an exercise; a food, object, place, person or random text; gibberish;
-abusive or sexual; a question or a message to you rather than a movement name; or pure
-cardio with no load and reps (running, cycling, rowing for time), because this app tracks
-weight and reps.
+  return `You identify strength-training exercises from how a lifter describes them, and tag
+them so the same movement described differently on different days lands on the same trend
+line. You know the whole domain — every variation, machine, implement and technique, however
+obscure or regional. Trust that knowledge.
 
-Accept it if it is a movement performed against resistance — barbell, dumbbell, machine,
-cable, band, or bodyweight — even if it is obscure, badly spelled, gym slang, or a variation
-you have to infer. Be generous here: lifters use shorthand, regional names and typos, and a
-false rejection is much more annoying than a slightly uncertain resolution.
+Return ONE JSON object, no prose, no markdown fence.
 
-If you reject it, respond with exactly:
-{"ok":false,"reason":"<one short sentence, addressed to the lifter, saying what to type instead>"}
+Accepted:
+{"ok":true,"base":"...","mods":[...],"muscles":[{"name":"...","role":"primary|secondary"}],
+ "body_part":"...","note":"...","confidence":"high|low"}
 
-STEP 2 — If it is an exercise, resolve it.
+Rejected (not an exercise at all):
+{"ok":false,"reason":"one short sentence, second person, telling them what to type instead"}
 
-KNOWN MOVEMENTS (reuse one of these whenever the description is a variation of it, rather
-than a genuinely different movement pattern):
-${knownBases.join(', ')}
+RULES
 
-KNOWN MODIFIERS (reuse these exact strings wherever they apply):
-${knownMods.join(', ')}
+base — the movement itself, lowercase, no modifiers in it. Reuse one of these names when it
+genuinely fits, so phrasings converge:
+${VOCAB_BASES.map((b) => `  ${b}`).join('\n')}
+If none fits, name it yourself in the same style. A movement missing from that list is
+normal, not an error — do not force a bad fit. A JM press is its own movement, not a tricep
+extension. A Zercher squat is a squat with a front-loaded rack position.
 
-MOVEMENTS THIS LIFTER HAS ALREADY LOGGED (strongly prefer these — reusing one keeps their
-existing trend line intact):
-${userBases.length ? userBases.join(', ') : '(none yet)'}
+mods — everything that changes how the movement loads. At most one per group:
+${modLines}
+Invent a tag when the description names something the list does not cover.
 
-Rules:
-- "base" is the movement pattern: lowercase, singular, no modifiers in it. A heel-elevated
-  back squat is still "squat". A single-arm cable row is still "row".
-- Only invent a new base when the pattern genuinely isn't listed — a Jefferson curl is not
-  a bicep curl, but a spider curl is.
-- "mods" are what changes how it loads: implement, attachment, grip, stance, angle, tempo,
-  range of motion, load type, unilateral. Lowercase, 1-3 words each. Reuse a known modifier
-  string exactly when it fits. Omit anything the description doesn't state — never guess.
-- "muscle" is the primary muscle worked, lowercase ("quads", "pectorals", "triceps").
-- "body_part" is exactly one of: chest, back, arms, legs — or null for core, carries and
-  full-body movements.
-- "note" explains in one or two sentences why this variant loads differently from the plain
-  version: moment arm, joint count, stability demand, range of motion, leg drive. Concrete
-  biomechanics, no filler. Empty string if the modifiers don't change loading.
-- "confidence" is "high" when you are sure what movement this is, "low" when you are
-  inferring from an ambiguous or badly garbled description.
+  THE CRITICAL RULE: every distinguishing term the lifter typed must appear in "base" or in
+  "mods". If they wrote "zercher barbell squat" and you return mods ["barbell"], their
+  Zercher squats merge into their ordinary barbell squats and months of trend data are
+  quietly corrupted. Explaining the difference in "note" does NOT protect them — only the
+  tag keeps the trend lines apart. When in doubt, tag it.
 
-Respond with JSON only, no prose:
-{"ok":true,"base":"...","mods":["..."],"muscle":"...","body_part":"..."|null,"note":"...","confidence":"high"|"low"}`;
+  Drop only words carrying no loading information: filler, set counts, "warmup", "felt good".
+
+muscles — every muscle meaningfully worked, using EXACTLY these names:
+${MUSCLES.join(', ')}
+  role "primary" for the muscles the movement is chosen to train — usually one, sometimes
+  two. role "secondary" for real contributors that are not the target.
+  Be honest and complete: this feeds fatigue detection across movements, so if a row trains
+  lats and biceps, say so. Do not list a muscle that is merely stabilising.
+
+body_part — one of: ${BODY_PARTS.join(', ')}. The primary muscle's group.
+
+note — one or two sentences on why this variant loads differently from the plain version of
+the movement: moment arm, range of motion, stability demand, joints involved. Concrete and
+mechanical. Empty string if it is simply the standard version. Never give form coaching,
+injury advice, or programming advice.
+
+confidence — "low" if you are inferring from an unfamiliar name rather than recognising the
+movement. Be honest; a low-confidence answer is kept private rather than shared.
+
+REJECT anything that is not a strength-training exercise: food, moods, questions, random
+words. Cardio and stretching are also rejected — this app tracks loaded sets.
+
+The lifter has already logged these variants. Reuse their exact base and mod strings when
+the description matches one, so it continues an existing trend line rather than forking:
+${known}`;
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
+  const cors = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
-  const auth = req.headers.get('Authorization') ?? '';
-  if (!auth.startsWith('Bearer ')) return json({ error: 'Not signed in' }, 401);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
 
-  const key = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!key) return json({ error: 'Resolver not configured' }, 503);
-
-  const url = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-  // Identify the caller from their own JWT — never trust a user id sent in the body.
-  const asUser = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: userData, error: userErr } = await asUser.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: 'Not signed in' }, 401);
-  const userId = userData.user.id;
-
-  let body: { text?: string; knownBases?: string[]; knownMods?: string[]; userBases?: string[] };
   try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Bad JSON' }, 400);
-  }
-
-  const text = String(body.text ?? '').trim().slice(0, 120);
-  if (text.length < 3) return json({ ok: false, reason: 'Too short to be an exercise.' });
-
-  const admin = createClient(url, serviceKey);
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Daily cap. The app is public, so without this one account could burn the balance.
-  const { data: usage } = await admin
-    .from('resolver_usage')
-    .select('calls')
-    .eq('user_id', userId)
-    .eq('day', today)
-    .maybeSingle();
-
-  if ((usage?.calls ?? 0) >= DAILY_CAP) {
-    return json(
-      { ok: false, capped: true, reason: `You have hit today's limit of ${DAILY_CAP} new exercises. Log it as typed — it still gets its own trend line.` },
-      429
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const anon = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
     );
-  }
 
-  try {
+    const { data: userData } = await anon.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) return json({ error: 'Not signed in' }, 401);
+
+    const { text, registry = [] } = await req.json();
+    const phrase = normalizePhrase(text);
+    if (!phrase) return json({ ok: false, reason: 'Type what you did.' });
+
+    // Service-role client: reads the SHARED cache (rows owned by nobody) and writes usage.
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // ---- layer 2: cache -------------------------------------------------------------
+    // Shared rows first (high-confidence, paid for by whoever typed it first), then this
+    // lifter's private low-confidence rows.
+    const { data: cached } = await admin
+      .from('exercise_aliases')
+      .select('*')
+      .eq('phrase', phrase)
+      .or(`user_id.is.null,user_id.eq.${userId}`)
+      .order('user_id', { ascending: true, nullsFirst: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (cached) {
+      return json({
+        ok: true,
+        base: cached.base,
+        mods: cached.mods ?? [],
+        muscles: cached.muscles ?? [],
+        muscle: cached.muscle,
+        body_part: cached.body_part,
+        note: cached.note ?? '',
+        confidence: cached.confidence ?? 'high',
+        source: 'cache',
+      });
+    }
+
+    // ---- cap ------------------------------------------------------------------------
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+
+    const { count } = await admin
+      .from('resolver_usage')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', monthStart.toISOString());
+
+    if ((count ?? 0) >= MONTHLY_CALL_CAP) {
+      return json({
+        ok: false,
+        capped: true,
+        reason: 'You have hit this month\'s limit for new exercise descriptions. Anything you have logged before still works.',
+      });
+    }
+
+    // ---- layer 3: the model ---------------------------------------------------------
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) {
+      console.error('[resolve-exercise] ANTHROPIC_API_KEY is not set');
+      return json({ ok: false, unavailable: true, reason: 'The coach is not configured.' });
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 400,
-        temperature: 0,
-        messages: [
-          { role: 'user', content: buildPrompt(text, body.knownBases ?? [], body.knownMods ?? [], body.userBases ?? []) },
-          // Prefilling the brace forces JSON and drops any preamble.
-          { role: 'assistant', content: '{' },
-        ],
+        max_tokens: 500,
+        system: buildPrompt(registry),
+        messages: [{ role: 'user', content: phrase }],
       }),
     });
 
     if (!res.ok) {
       const detail = await res.text();
-      console.error('[resolve-exercise] Anthropic error', res.status, detail);
-      return json({ error: 'Upstream resolver failed', status: res.status }, 502);
+      // Loud on purpose. A silent failure here is indistinguishable from bad wifi on the
+      // client, which is exactly how the retired-model outage went unnoticed for days.
+      console.error('[resolve-exercise] anthropic error', res.status, detail.slice(0, 400));
+      return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
     }
 
-    const data = await res.json();
-    const raw = '{' + (data?.content?.[0]?.text ?? '');
+    const payload = await res.json();
+    const raw = payload?.content?.[0]?.text ?? '';
 
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim());
     } catch {
-      console.error('[resolve-exercise] Unparseable model output', raw);
-      return json({ error: 'Resolver returned malformed output' }, 502);
+      console.error('[resolve-exercise] unparseable model output', raw.slice(0, 400));
+      return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
     }
 
-    // Count the call whether or not it resolved — a rejection still cost money.
-    await admin.from('resolver_usage').upsert(
-      { user_id: userId, day: today, calls: (usage?.calls ?? 0) + 1 },
-      { onConflict: 'user_id,day' }
-    );
+    await admin.from('resolver_usage').insert({ user_id: userId, phrase });
 
     if (parsed.ok === false) {
       return json({
         ok: false,
         rejected: true,
-        reason: String(parsed.reason ?? '').trim() || 'That does not look like an exercise.',
+        reason: String(parsed.reason ?? 'That does not look like an exercise.'),
       });
     }
 
-    // Validate before it can reach the database — a model returning "Chest" for
-    // body_part would violate the schema's check constraint.
-    const PARTS = ['chest', 'back', 'arms', 'legs'];
-    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-
     const base = norm(parsed.base);
-    if (!base) return json({ ok: false, rejected: true, reason: 'I could not name that movement.' });
+    if (!base) {
+      return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
+    }
 
+    let mods = Array.isArray(parsed.mods)
+      ? [...new Set(parsed.mods.map(norm).filter((m: string) => m && m.length <= 24))]
+      : [];
+
+    // Safety net for the critical rule above. The model sometimes explains a distinguishing
+    // term in `note` but omits it from `mods` — which merges the variant into the plain
+    // movement's trend line, invisibly and permanently. Any content word from the input that
+    // neither the base nor a mod accounts for becomes a tag, so a forgotten term degrades to
+    // an ugly tag rather than corrupted data.
+    const FILLER = new Set([
+      'a', 'an', 'the', 'and', 'with', 'of', 'for', 'to', 'at', 'in', 'on', 'my', 'me',
+      'using', 'use', 'used', 'plus', 'both', 'set', 'sets', 'rep', 'reps', 'x', 'then',
+      'from', 'some', 'it', 'today', 'warmup', 'warm', 'up', 'superset', 'heavy', 'light',
+      'easy', 'hard', 'normal', 'regular', 'standard', 'usual', 'did', 'do', 'doing',
+    ]);
+    const accounted = new Set(
+      `${base} ${mods.join(' ')}`
+        .split(/\s+/)
+        .flatMap((w: string) => [w, w.replace(/s$/, ''), `${w}s`, w.replace(/-/g, ' ')])
+    );
+    const missed = phrase
+      .split(/\s+/)
+      .filter((w) => w && !FILLER.has(w) && !/^\d/.test(w) && !accounted.has(w));
+
+    if (missed.length) {
+      console.warn('[resolve-exercise] model dropped terms, tagging them', { phrase, base, mods, missed });
+      mods.push(missed.join(' '));
+    }
+    mods = [...new Set(mods)].sort();
+
+    const muscles = (Array.isArray(parsed.muscles) ? parsed.muscles : [])
+      .map((m: Record<string, unknown>) => ({
+        name: norm(m?.name),
+        role: m?.role === 'secondary' ? 'secondary' : 'primary',
+      }))
+      .filter((m: { name: string }) => MUSCLES.includes(m.name));
+
+    const primary = muscles.find((m: { role: string }) => m.role === 'primary') ?? muscles[0] ?? null;
     const part = norm(parsed.body_part);
     const confidence = parsed.confidence === 'low' ? 'low' : 'high';
 
     const result = {
       ok: true,
       base,
-      mods: Array.isArray(parsed.mods)
-        ? [...new Set(parsed.mods.map(norm).filter((m) => m && m.length <= 24))].sort()
-        : [],
-      muscle: norm(parsed.muscle) || null,
-      body_part: PARTS.includes(part) ? part : null,
+      mods,
+      muscles,
+      muscle: primary?.name ?? null,
+      body_part: BODY_PARTS.includes(part) ? part : null,
       note: String(parsed.note ?? '').trim(),
       confidence,
       source: 'ai' as const,
     };
 
     // Cache it. High-confidence answers go in the SHARED cache so nobody pays for this
-    // phrase again; low-confidence stays private, so a shaky guess can't teach everyone
-    // something wrong.
-    await admin.from('exercise_aliases').upsert(
+    // phrase again; low-confidence stays private, so a shaky inference cannot teach everyone
+    // something wrong. Conflict target must match the NULLS NOT DISTINCT constraint from
+    // migration 003 — a partial index cannot be inferred here and every write fails silently.
+    const { error: cacheErr } = await admin.from('exercise_aliases').upsert(
       {
-        phrase: text.toLowerCase().replace(/\s+/g, ' '),
+        phrase,
         base: result.base,
         mods: result.mods,
+        muscles: result.muscles,
         muscle: result.muscle,
         body_part: result.body_part,
         note: result.note,
@@ -235,9 +356,12 @@ Deno.serve(async (req) => {
       { onConflict: 'phrase,user_id' }
     );
 
+    // Never swallow: a failed cache write means every repeat of this phrase is billed again.
+    if (cacheErr) console.error('[resolve-exercise] cache write failed', cacheErr);
+
     return json(result);
   } catch (err) {
-    console.error('[resolve-exercise] Unhandled failure', err);
-    return json({ error: 'Resolver unavailable' }, 502);
+    console.error('[resolve-exercise] unhandled', err);
+    return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
   }
 });

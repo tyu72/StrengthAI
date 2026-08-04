@@ -573,7 +573,18 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px">
 <sc-for list="{{ res.chips }}" as="c" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#C7CCC6">{{ c.t }}</div></sc-for>
 </div>
+<sc-if value="{{ res.hasMuscles }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:11px">
+<div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:6px">Trains</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px">
+<sc-for list="{{ res.muscles }}" as="m" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};border:{{ m.bd }}">{{ m.t }}</div></sc-for>
+</div>
+</div>
+</sc-if>
 <div style="font-size:12.5px;color:#8A928C;margin-top:11px;line-height:1.55">{{ res.trend }}</div>
+<sc-if value="{{ res.lowConf }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:8px;display:flex;gap:7px;align-items:flex-start"><i style="font-size:14px;color:#5F665F;margin-top:1px">help</i>The coach worked this one out from the name rather than recognising it — worth a look before you trust the note.</div>
+</sc-if>
 <sc-if value="{{ res.hasNote }}" hint-placeholder-val="{{ false }}">
 <div style="background:#101211;border:1px solid #272C29;border-radius:13px;padding:12px;margin-top:11px">
 <div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Why the load will differ</div>
@@ -864,6 +875,64 @@ class Component extends DCLogic {
 
   MODORDER = ['side', 'implement', 'attachment', 'grip', 'stance', 'angle', 'tempo', 'rom', 'load'];
 
+  // Primary + secondary muscles per movement. In the real app the model returns these per
+  // variant; here they are keyed off the base so the prototype can show the chips.
+  MUSCLE_MAP = {
+    'bench press': [['pectorals', 1], ['triceps', 0], ['front delts', 0]],
+    'incline press': [['upper chest', 1], ['front delts', 0], ['triceps', 0]],
+    'chest fly': [['pectorals', 1]],
+    'chest press': [['pectorals', 1], ['triceps', 0], ['front delts', 0]],
+    'dip': [['triceps', 1], ['pectorals', 1], ['front delts', 0]],
+    'overhead press': [['front delts', 1], ['triceps', 0], ['upper chest', 0]],
+    'lateral raise': [['side delts', 1]],
+    'rear delt fly': [['rear delts', 1], ['upper back', 0]],
+    'face pull': [['rear delts', 1], ['upper back', 1], ['traps', 0]],
+    'tricep extension': [['triceps', 1]],
+    'pushdown': [['triceps', 1]],
+    'jm press': [['triceps', 1], ['pectorals', 0], ['front delts', 0]],
+    'lat pulldown': [['lats', 1], ['biceps', 0], ['upper back', 0]],
+    'pull-up': [['lats', 1], ['biceps', 0], ['upper back', 0]],
+    'row': [['upper back', 1], ['lats', 1], ['biceps', 0]],
+    'shrug': [['traps', 1]],
+    'curl': [['biceps', 1], ['brachialis', 0], ['forearms', 0]],
+    'squat': [['quads', 1], ['glutes', 1], ['lower back', 0], ['abs', 0]],
+    'leg press': [['quads', 1], ['glutes', 0]],
+    'leg extension': [['quads', 1]],
+    'romanian deadlift': [['hamstrings', 1], ['glutes', 1], ['lower back', 0]],
+    'deadlift': [['hamstrings', 1], ['glutes', 1], ['lower back', 1], ['traps', 0]],
+    'hamstring curl': [['hamstrings', 1]],
+    'hip thrust': [['glutes', 1], ['hamstrings', 0]],
+    'lunge': [['quads', 1], ['glutes', 1]],
+    'calf raise': [['calves', 1]]
+  };
+
+  // Stands in for the model. These are exactly the phrases the old hand-written dictionary
+  // got wrong — it filed a JM press as a tricep extension and dropped "zercher" and
+  // "zottman" entirely, merging distinct lifts into one trend line. Checked BEFORE the
+  // dictionary, mirroring the real architecture where the model is the authority.
+  AI_SIM = [
+    { m: ['jm press'], base: 'jm press', mods: ['barbell'], p: 'arms',
+      note: 'A hybrid of a close-grip bench and a skullcrusher: the elbows travel forward, so the triceps take load through a longer range than either movement alone. Its own lift, not a skullcrusher variation.' },
+    { m: ['zercher'], base: 'squat', mods: ['barbell', 'zercher'], p: 'legs',
+      muscles: [['quads', 1], ['glutes', 1], ['upper back', 0], ['abs', 0]],
+      note: 'The front-rack elbow position keeps the torso upright and shifts load onto the quads and upper back. Expect well under your back squat at the same effort.' },
+    { m: ['zottman', 'zotman'], base: 'curl', mods: ['dumbbell', 'zottman'], p: 'arms',
+      muscles: [['biceps', 1], ['forearms', 1], ['brachialis', 0]],
+      note: 'The wrist rotates at the top so the eccentric is performed pronated. Forearm strength, not biceps, sets the ceiling — the load runs lighter than a standard curl.' },
+    { m: ['sldl', 'stiff leg deadlift', 'straight leg deadlift'], base: 'romanian deadlift', mods: ['barbell', 'straight leg'], p: 'legs',
+      note: 'Less knee bend than an RDL, so the hamstrings work at a longer length and the lower back takes more. Runs lighter than a conventional deadlift.' },
+    { m: ['seal row'], base: 'row', mods: ['chest supported', 'barbell', 'lying'], p: 'back',
+      note: 'Lying face-down removes the torso and lower back from the equation entirely — pure upper-back stimulus, and usually a higher usable load than a bent-over row.' },
+    { m: ['pendlay row'], base: 'row', mods: ['barbell', 'bent over', 'floor'], p: 'back',
+      note: 'Each rep resets on the floor, killing the stretch reflex. Same weight, more work per rep than a touch-and-go row.' },
+    { m: ['landmine press'], base: 'overhead press', mods: ['landmine', 'single arm'], p: 'shoulders',
+      muscles: [['front delts', 1], ['upper chest', 0], ['triceps', 0], ['abs', 0]],
+      note: 'The arcing bar path sits between a press and an incline press, and the fixed pivot removes most of the overhead stability demand.' },
+    { m: ['jefferson curl'], base: 'jefferson curl', mods: ['barbell'], p: 'core', conf: 'low',
+      muscles: [['lower back', 1], ['hamstrings', 1]],
+      note: 'A loaded spinal flexion drill through a deliberately long range. Loads stay very light relative to any hinge — not comparable to a deadlift or RDL.' }
+  ];
+
   state = {
     screen: 'home', sheet: null, framed: true, store: this.loadStore(),
     sessionId: null, tplId: null, logEx: null, day: null, cursor: null,
@@ -885,6 +954,7 @@ class Component extends DCLogic {
   toKg(lb) { return Math.round((lb / this.LB) * 100) / 100; }
   round5(n) { return Math.round(n * 2) / 2; }
   title(s) { return String(s || '').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
+  plural(n) { return n === 1 ? 'logged once' : n === 2 ? 'logged twice' : 'logged ' + n + ' times'; }
   ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   e1rm(w, r) { return (w || 0) * (1 + (r || 0) / 30); }
 
@@ -1000,23 +1070,76 @@ class Component extends DCLogic {
     return { base: base, mods: mods };
   }
 
+  musclesFor(baseKey, override) {
+    const rows = override || this.MUSCLE_MAP[baseKey] || [];
+    return rows.map(r => ({ name: r[0], role: r[1] ? 'primary' : 'secondary' }));
+  }
+
+  // Junk filter — free, and deliberately permissive. It only rejects what CANNOT be an
+  // exercise; judging whether a well-formed phrase is one is the model's job.
+  plausible(text) {
+    const t = this.norm(text).trim();
+    if (t.length < 3) return { ok: false, reason: 'A bit more detail — name the movement.' };
+    if (!/[aeiou]/.test(t)) return { ok: false, reason: 'That does not look like an exercise.' };
+    if (/[bcdfghjklmnpqrstvwxz]{6,}/.test(t)) return { ok: false, reason: 'That does not look like an exercise.' };
+    if (/^(.)\1+$/.test(t.replace(/\s/g, ''))) return { ok: false, reason: 'That does not look like an exercise.' };
+    const food = /\b(pizza|parmesan|chicken|pasta|burrito|sandwich|coffee|dinner|lunch|breakfast|taco|salad)\b/;
+    if (food.test(t)) return { ok: false, reason: 'That is not an exercise. Describe the movement — "single arm cuff tricep extension".' };
+    return { ok: true };
+  }
+
+  /**
+   * AI-first resolution.
+   *
+   * The old version ran the dictionary FIRST and only escalated when it drew a blank, so
+   * hand-written aliases outranked the model on every phrase they touched. That is how
+   * "jm press" became a tricep extension. Order now: junk filter, then the model, then the
+   * lifter's registry to decide whether it continues an existing trend line.
+   */
   resolveText(text) {
-    const p = this.parse(text);
-    const keys = p.mods.map(m => m.k);
-    if (!p.base) return { ok: false, raw: text };
+    const junk = this.plausible(text);
+    if (!junk.ok) return { status: 'rejected', reason: junk.reason, raw: text };
+
+    const t = this.norm(text);
+    let base = null, mods = [], muscles = null, note = '', part = null, conf = 'high';
+
+    const sim = this.AI_SIM.find(s => s.m.some(k => t.indexOf(' ' + k + ' ') >= 0));
+    if (sim) {
+      base = sim.base; mods = sim.mods.slice(); note = sim.note; part = sim.p;
+      muscles = sim.muscles || null; conf = sim.conf || 'high';
+    } else {
+      const p = this.parse(text);
+      if (!p.base) return { status: 'unknown', raw: text };
+      base = p.base.k; part = p.base.p;
+      mods = p.mods.map(m => m.k);
+      note = p.mods.map(m => m.n).filter(Boolean).slice(0, 2).join(' ');
+    }
+
+    // Safety net: any content word the answer does not account for becomes a tag, so a
+    // dropped term degrades to an ugly chip rather than a silent merge into another lift.
+    const FILLER = ' a an the and with of for to at in on my me using set sets rep reps did do heavy light warmup ';
+    const seen = (base + ' ' + mods.join(' ')).split(' ');
+    const missed = t.trim().split(' ').filter(w => w && FILLER.indexOf(' ' + w + ' ') < 0 && !/^\d/.test(w) && seen.indexOf(w) < 0 && seen.indexOf(w.replace(/s$/, '')) < 0);
+    if (missed.length && !sim) mods.push(missed.join(' '));
+
+    const keys = mods.slice().sort();
     let best = null, bestScore = -1;
-    (this.state.store.variants || []).filter(v => v.base === p.base.k).forEach(v => {
-      const A = v.mods || [], B = keys;
-      const inter = B.filter(x => A.indexOf(x) >= 0).length;
-      const denom = Math.max(A.length, B.length);
-      const sc = denom === 0 ? 1 : inter / denom;
+    (this.state.store.variants || []).filter(v => v.base === base).forEach(v => {
+      const A = v.mods || [];
+      const denom = Math.max(A.length, keys.length);
+      const sc = denom === 0 ? 1 : keys.filter(x => A.indexOf(x) >= 0).length / denom;
       if (sc > bestScore) { bestScore = sc; best = v; }
     });
+
     let status = 'new';
     if (best && bestScore >= 0.75) status = 'match';
     else if (best && bestScore >= 0.3) status = 'close';
-    const note = p.mods.map(m => m.n).filter(Boolean).slice(0, 2).join(' ');
-    return { ok: true, base: p.base, mods: keys, modObjs: p.mods, status: status, match: best, score: bestScore, note: note };
+
+    return {
+      status: status, ok: true, base: { k: base, p: part, m: (this.musclesFor(base, muscles)[0] || {}).name },
+      mods: keys, muscles: this.musclesFor(base, muscles), note: note, conf: conf,
+      match: best, score: bestScore, raw: text
+    };
   }
 
   classifyNote(text) {
@@ -1084,7 +1207,7 @@ class Component extends DCLogic {
     if (res.status === 'match' || res.useMatch) { vid = res.match.id; }
     else {
       vid = this.uid();
-      const nv = { id: vid, base: res.base.k, mods: res.mods, m: res.base.m, p: res.base.p, uses: 0, created: Date.now(), unrecognized: !!res.unrecognized };
+      const nv = { id: vid, base: res.base.k, mods: res.mods, muscles: res.muscles || this.musclesFor(res.base.k), m: res.base.m, p: res.base.p, uses: 0, created: Date.now(), unrecognized: !!res.unrecognized };
       this.mut(s => { s.variants.push(nv); });
     }
     const sid = this.state.sessionId, tid = this.state.tplId;
@@ -1296,23 +1419,41 @@ class Component extends DCLogic {
 
       const r = st.resolution;
       V.hasResolution = !!r;
+      const mChip = m => ({
+        t: m.name,
+        bg: m.role === 'primary' ? 'rgba(168,201,162,.13)' : '#1E2220',
+        fg: m.role === 'primary' ? accent : '#9AA39C',
+        bd: m.role === 'primary' ? '1px solid rgba(168,201,162,.3)' : '1px solid transparent'
+      });
       if (r) {
-        if (!r.ok) {
-          // Never a dead end. The dictionary being short is the app's problem, not the
-          // lifter's — log it as typed and it still gets a trend line that future
-          // identical descriptions match into.
+        if (r.status === 'rejected') {
+          // The only status that blocks. Everything else still lets the lifter log — they
+          // are standing at a rack, and a workout must always be loggable.
+          V.res = {
+            bd: 'rgba(242,112,92,.3)', bg: 'rgba(242,112,92,.05)', ac: '#F2705C', icon: 'block',
+            status: 'Not an exercise',
+            name: '“' + String(r.raw || '').trim() + '”',
+            chips: [], hasMuscles: false, muscles: [], lowConf: false,
+            trend: r.reason,
+            hasNote: false, showAlt: false,
+            cta: 'Try again',
+            confirm: () => this.setState({ resolution: null, q: '' })
+          };
+        } else if (r.status === 'unknown') {
+          // Never a dead end. Being unable to reach the coach is the app's problem, not the
+          // lifter's — log it as typed and it still gets a trend line that future identical
+          // descriptions match into.
           const raw = String(r.raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
-          const rawMods = this.parse(r.raw).mods.map(m => m.k);
           V.res = {
             bd: 'rgba(242,181,68,.35)', bg: 'rgba(242,181,68,.05)', ac: '#F2B544', icon: 'edit_note',
-            status: 'Not a movement I know',
+            status: 'Logged as typed',
             name: this.title(raw),
-            chips: rawMods.map(m => ({ t: m })),
-            trend: 'I can\u2019t tell you how this one loads, so I won\u2019t pretend to. Logged as typed it still gets its own trend line, and identical descriptions will match into it from now on.',
+            chips: [], hasMuscles: false, muscles: [], lowConf: false,
+            trend: 'I couldn\u2019t reach the coach just now, so I won\u2019t pretend to know how this one loads. Logged as typed it still gets its own trend line, and it can be re-resolved later.',
             hasNote: false,
             showAlt: true, altLabel: 'Edit', altPick: () => this.setState({ resolution: null }),
             cta: 'Log it as typed',
-            confirm: () => this.addVariantFromResolution({ ok: true, status: 'new', base: { k: raw, m: null, p: null }, mods: rawMods, match: null, unrecognized: true }, target)
+            confirm: () => this.addVariantFromResolution({ ok: true, status: 'new', base: { k: raw, m: null, p: null }, mods: [], muscles: [], match: null, unrecognized: true }, target)
           };
         } else {
           const matched = r.status === 'match', close = r.status === 'close';
@@ -1326,9 +1467,11 @@ class Component extends DCLogic {
             icon: matched ? 'link' : close ? 'call_split' : 'add_circle',
             status: matched ? 'Matched to an existing variant' : close ? 'Close, but not the same thing' : 'New variant',
             name: this.title(r.base.k),
-            chips: r.mods.map(m => ({ t: m })).concat([{ t: r.base.m }]),
+            chips: r.mods.map(m => ({ t: m })),
+            muscles: (r.muscles || []).map(mChip), hasMuscles: !!(r.muscles || []).length,
+            lowConf: r.conf === 'low',
             trend: matched
-              ? 'Continues the trend line you already have — logged ' + (mv.uses || pts.length) + ' times' + (lastSet ? ', last at ' + this.dw(lastSet.weight) + ' ' + u + ' x ' + lastSet.reps : '') + '.'
+              ? 'Continues the trend line you already have — ' + this.plural(mv.uses || pts.length) + (lastSet ? ', last at ' + this.dw(lastSet.weight) + ' ' + u + ' × ' + lastSet.reps : '') + '.'
               : close
                 ? 'Closest match is ' + this.vName(mv) + ' (' + this.vMods(mv) + '). The modifiers differ enough that loads will not be comparable, so I would start a separate line.'
                 : 'No prior match. Starting a fresh trend line — future sessions with this description will land here automatically.',

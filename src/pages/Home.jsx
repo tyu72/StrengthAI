@@ -10,10 +10,16 @@ import {
 } from '@/api/db'
 import { display } from '@/lib/units'
 import { weekRange, sessionVolumeKg } from '@/lib/coach'
+import { BODY_PARTS } from '@/lib/resolver'
 import logo from '@/assets/logo.png'
 
-export const PART_LABELS = { chest: 'Chest', back: 'Back', arms: 'Arms', legs: 'Legs' }
-export const PART_ORDER = ['chest', 'back', 'arms', 'legs']
+// Derived from the resolver's vocabulary rather than listed again here, so a variant can
+// never come back tagged with a body part the goals UI has no row for. Migration 004 added
+// shoulders and core — delts used to be filed under arms, and core had nowhere to go.
+export const PART_ORDER = BODY_PARTS
+export const PART_LABELS = Object.fromEntries(
+  PART_ORDER.map((p) => [p, p.charAt(0).toUpperCase() + p.slice(1)])
+)
 
 const ymd = (d) => {
   const dt = new Date(d)
@@ -137,7 +143,7 @@ export default function Home() {
 
   const goalRows = useMemo(() => {
     const [start, end] = weekRange(new Date())
-    const counts = { chest: 0, back: 0, arms: 0, legs: 0 }
+    const counts = Object.fromEntries(PART_ORDER.map((p) => [p, 0]))
     sessionList
       .filter((s) => new Date(s.started_at) >= start && new Date(s.started_at) < end)
       .forEach((s) => {

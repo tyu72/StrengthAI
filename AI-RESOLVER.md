@@ -1,115 +1,149 @@
-# Setting up the AI resolver
+# The resolver
 
-The resolver has three layers. Only the third costs anything, and it is only reached for
-phrasing nobody has ever typed before.
+You type what you did. The model works out what it is.
 
-| Layer | Speed | Cost | Works offline |
-| --- | --- | --- | --- |
-| 1. Dictionary (`src/lib/resolver.js`) | instant | free | yes |
-| 2. Alias cache (`exercise_aliases`) | instant | free | no (one query) |
-| 3. AI (`resolve-exercise` function) | ~1s | ~$0.001 | no |
-
-Every AI answer is written back into layer 2. High-confidence answers are shared across
-all users, so the same phrase is never paid for twice by anyone. The app gets cheaper and
-faster the more it is used.
-
-## What it costs
-
-About two tenths of a cent per novel phrase. A lifter's first month is 40–60 new
-movements, so roughly 10 cents each, then it falls away as their vocabulary is covered.
-
-Credit is **prepaid**. Buy $5, leave auto-reload OFF, and $5 is a hard ceiling — the
-balance cannot go negative. If it ever ran out, the resolver falls back to the dictionary
-and log-as-typed, and the app keeps working.
-
-## Steps
-
-**1. Get an API key**
-
-console.anthropic.com → Billing → add $5 credit → **turn auto-reload off** → API Keys →
-create a key. It starts `sk-ant-`.
-
-**2. Run the migration**
-
-Supabase → SQL Editor → New query → paste all of
-`supabase/migrations/002_ai_resolver.sql` → Run.
-
-**3. Deploy the function**
-
-```bash
-npm install -g supabase
-supabase login
-supabase link --project-ref <your-project-ref>     # Settings → General
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase functions deploy resolve-exercise
+```
+"zercher barbell squat"
+  → Squat  ·  barbell  ·  zercher
+    quads (primary), glutes (primary), upper back (secondary), abs (secondary)
+    "The front-rack elbow position keeps the torso upright and shifts load onto the
+     quads and upper back, so it runs well under a back squat at the same effort."
 ```
 
-**4. Check it**
+No exercise database, no dropdown, no taxonomy to map onto. Describe the lift the way you
+would say it out loud — grip, attachment, stance, tempo — and it becomes a trend line.
 
-Type something the dictionary doesn't know — `heel elevated barbell squat`. It should
-resolve to Squat with `barbell` + `heel elevated` and explain that elevating the heels
-shifts the load toward the quads and lets the knee travel further forward.
+## Why it works this way
 
-Then type it again: instant, no model call. That's layer 2 working.
+The obvious design is a dictionary: parse the text, match against a list of known movements
+and modifiers, call the model only when nothing matches. That is what this app had, and it
+was wrong.
 
-Then type `chicken parmesan`. It should be refused with a sentence telling you what to
-type instead.
+Fifty-odd hand-written aliases outranked the model on any phrase they happened to touch, and
+they were confidently wrong in ways nobody could see:
 
-## Guardrails
+- `heel elevated barbell squat` matched `barbell squat`, because "heel elevated" was not in
+  the modifier list. Two different lifts, one trend line, silently.
+- `jm press` matched `tricep extension`, because someone had written that alias by hand. A
+  JM press is its own movement.
+- `zercher barbell squat` came back tagged `barbell` only.
 
-**Every word must be accounted for** (`parse().unexplained`, client-side, free). A word the
-dictionary can't explain — not the movement, not a known modifier, not a stopword — sets
-`needsAI`, and the resolver escalates to the cache and the model instead of answering from
-a partial reading. Without it the dictionary silently drops what it doesn't recognise: it
-read `heel elevated barbell squat` as a plain barbell squat, dropped `heel` and `elevated`,
-and merged two different lifts into one trend line at full confidence. If the AI is
-unreachable the local reading is still used, but the leftover words ride along as a
-modifier tag, so the worst case is an odd-looking chip rather than a silent merge. Movement
-nouns are exempt (`landmine press` is missing `landmine`, not `press`) — an unrecognised
-*variation* of a known lift shouldn't read as an unexplained load.
+Every one of those corrupts data invisibly. You do not find out until months later, staring
+at a flat chart, wondering why your squat stopped moving.
 
-**Pin a dated model, never a `-latest` alias.** Aliases follow retirements, and to the
-client a 404 is indistinguishable from being offline — both surface as "I could not reach
-the coach just now", so the whole AI layer degrades silently and looks like bad wifi.
-`RESOLVER_MODEL` overrides a deployment without a redeploy, but the fallback in
-`index.ts` is what a fresh deploy elsewhere gets, so it has to be pinned too.
+So the model is the authority now. There is no dictionary fallback and no alias list. What
+remains is **vocabulary** — canonical strings the model is told to reuse — because the hard
+problem was never identifying a Zottman curl. It is making "SLDL", "stiff-legged deadlift"
+and "straight leg deads" produce identical tags six weeks apart.
 
-**Junk filter** (`isPlausibleExercise`, client-side, free) rejects input that cannot be an
-exercise — too short, no vowels, keyboard runs, repeated characters. Deliberately
-high-precision: it only blocks the impossible, because a false rejection is far more
-annoying than a fraction of a cent.
+## Three gates
 
-**Model gate** does the semantic judgment: food, gibberish, abuse, questions, and pure
-cardio are refused with copy written for the lifter. It is told to be generous with
-obscure names, gym slang and typos.
+Only the last one costs anything.
 
-**Daily cap** — 50 new exercises per account per day, counted server-side. The app is
-public, so without it one account could drain the balance. Change with
-`supabase secrets set RESOLVER_DAILY_CAP=100`.
+**1. Your own history** — `findLocal`, in `src/lib/resolver.js`
+Typed this exact phrase before? Instant, offline, free. Most logging never gets past here.
 
-**Shared cache is high-confidence only.** A shaky resolution stays private to the lifter
-who triggered it, so it cannot teach everyone something wrong.
+**2. Junk filter** — `isPlausibleExercise`
+Rejects keyboard mashing and empty input. Deliberately permissive: it only stops what
+*cannot* be an exercise. `chicken parmesan` passes this gate — judging that is the model's
+job, and a local wordlist would also reject legitimate obscure movements.
 
-**Auth required.** The function reads the caller's identity from their own JWT, so the key
-cannot be used as an open proxy by anyone who finds the URL.
+**3. The model** — `supabase/functions/resolve-exercise`
+Checks the shared alias cache first. Only a phrase nobody has ever described costs a call,
+and it is cached forever after.
 
-## The rule that matters
+## What comes back
 
-**Never block logging.** Every path — offline, out of credit, capped, unrecognised — ends
-somewhere the lifter can still record the set. `status: 'unresolved'` means "log it as
-typed", which creates a variant from the raw text that future identical descriptions match
-into. Refusing to record what someone did because a dictionary is short, or the wifi is
-bad, is the one failure this app cannot have.
+```json
+{
+  "base": "squat",
+  "mods": ["barbell", "zercher"],
+  "muscles": [
+    { "name": "quads",      "role": "primary"   },
+    { "name": "glutes",     "role": "primary"   },
+    { "name": "upper back", "role": "secondary" },
+    { "name": "abs",        "role": "secondary" }
+  ],
+  "body_part": "legs",
+  "note": "The front-rack elbow position keeps the torso upright…",
+  "confidence": "high"
+}
+```
 
-Only `status: 'rejected'` blocks, and only for input that is genuinely not an exercise.
+**Muscles are the point.** Fatigue is not per-exercise — a bench press stalls because the
+triceps absorbed eighteen sets across bench, dips and pushdowns. Per-exercise analysis can
+never see that. Storing primary and secondary muscles at resolve time is what makes
+cross-movement fatigue detection possible, which is the thing this whole app exists for.
 
-## What is NOT AI, deliberately
+Primary counts as a full set, secondary as half (`ROLE_WEIGHT`). Honest enough for "you have
+done 14 sets of chest this week".
 
-The coaching math is arithmetic and stays that way: RIR at matched load, plateau
-detection, the program-level check, goal projections. A model would be slower, cost money,
-and be less reliable at statistics.
+## Four outcomes
 
-Worth doing later, once there is real training data to explain: AI plateau diagnoses and
-weekly reports. Those are the two places a paragraph of real synthesis beats a template —
-the detection is already honest, but the explanation is currently a hardcoded string
-chosen by an `if`.
+| status | what it means | blocks logging? |
+| --- | --- | --- |
+| `known` | matches a variant you already have | no — continues that trend line |
+| `resolved` | the model or the shared cache identified it | no |
+| `rejected` | not an exercise | **yes** — the only one that does |
+| `unresolved` | offline, or monthly cap hit | no — logs as typed, re-resolve later |
+
+`unresolved` never blocks, deliberately. You are standing at a rack. A workout must always
+be loggable, even offline, even out of credit.
+
+## The rule that protects your data
+
+**Every distinguishing term you type must end up in `base` or `mods`.**
+
+If you write "zercher barbell squat" and it returns `["barbell"]`, your Zercher squats merge
+into your ordinary barbell squats and months of trend data are quietly corrupted. Explaining
+the difference in `note` does not protect you — only the tag keeps the trend lines apart.
+
+This is stated in the prompt, and enforced again server-side: any content word from your
+input that neither the base nor a mod accounts for gets appended as a tag. A term the model
+forgets degrades to an ugly tag rather than corrupted data. Never trust the model to be
+complete on this one.
+
+## Cost
+
+Haiku 4.5, ~$0.002 per novel phrase. Everything else is free:
+
+- repeat exercises → gate 1, no network
+- anything anyone has described before → shared cache, no model call
+- junk → gate 2, no model call
+
+Realistically: **a few cents in your first month**, then near zero as the cache fills.
+Prepaid credit only, so it cannot overrun. A 400-call monthly cap per user is enforced
+server-side, where the client cannot edit it.
+
+Low-confidence answers stay private to whoever triggered them — a shaky inference should not
+teach everyone something wrong. High-confidence answers are shared, so the first lifter to
+describe a movement pays for it and nobody else does.
+
+## Pin the model
+
+`RESOLVER_MODEL` secret, falling back to `claude-haiku-4-5` in `index.ts`.
+
+Never `-latest`. That alias broke this function once: the underlying dated model retired,
+calls started 404ing, and because a 404 and a network failure land in the same catch on the
+client, the AI layer degraded to "I could not reach the coach just now" and read as bad wifi
+for days. A version alias tracks one generation and cannot silently jump.
+
+## Files
+
+```
+src/lib/resolver.js            vocabulary, normalization, junk filter, local match
+src/api/resolveExercise.js     the three gates
+supabase/functions/resolve-exercise/index.ts    cache → cap → model
+supabase/migrations/004_ai_first_resolver.sql   muscles, wider body parts
+```
+
+## Do not
+
+- **Add an alias list or matching logic to `resolver.js`.** That is the bug this replaced. If
+  the model gets something wrong, fix the prompt or the vocabulary.
+- **Pre-seed the cache with hand-written entries.** Same problem wearing a different hat, and
+  worse — a wrong seed row serves the wrong answer free, forever, and no model call ever
+  corrects it.
+- **Let the model judge form, injury or programming.** It cannot see you lift. The coaching
+  is honest because it is grounded in logged data.
+- **Block logging on any failure except `rejected`.**

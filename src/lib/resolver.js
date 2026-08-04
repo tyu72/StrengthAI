@@ -1,395 +1,242 @@
 /**
- * Freeform exercise resolver.
+ * Exercise vocabulary and input hygiene.
  *
- * Turns what a lifter types ("single arm cuff tricep extension") into a canonical
- * variant so trends stay continuous across sessions. No network, no model calls,
- * fully deterministic — this runs offline and costs nothing.
+ * ARCHITECTURE NOTE — read this before adding anything here.
  *
- * The problem it solves: an exercise database can't express "cuff instead of rope"
- * or "feet up", but those change the load meaningfully. Free text can express them;
- * the cost is that "feet up narrow grip bench" and "narrow-grip bench, feet elevated"
- * are different strings for the same thing. This module collapses them.
+ * This file used to be a matching engine: it parsed free text against a hand-written
+ * dictionary of movements and modifiers, and answered FIRST, with the model consulted only
+ * when it drew a blank. That was backwards, and every serious resolver bug came from it —
+ * fifty-odd hand-written aliases outranking the model on any phrase they happened to touch.
+ * "heel elevated barbell squat" resolved as a plain barbell squat and silently merged two
+ * different lifts into one trend line. "jm press" resolved as a tricep extension because
+ * someone had written that alias by hand.
  *
- *   parse(text)                  -> { base, mods }
- *   resolve(text, variants)      -> { status, base, mods, match, score, note }
- *   canonicalLabel(base)         -> "Bench Press"  (mods render as chips, not in the name)
+ * The model is the authority now. What survives here is VOCABULARY, not matching: the
+ * canonical strings the model is told to reuse so that two sessions describing the same
+ * lift six weeks apart produce identical tags. That is the actual hard problem. Identifying
+ * a Zottman curl is easy; making "SLDL", "stiff-legged deadlift" and "straight leg deads"
+ * converge on one trend line is what keeps the coaching honest.
  *
- * status is one of:
- *   'match'   — same variant, keep logging to the existing trend line
- *   'close'   — same movement, different enough modifiers that loads aren't comparable
- *   'new'     — nothing like it in the registry
- *   'unknown' — the movement isn't in the vocabulary below
+ * Speed and cost are the cache's job (`exercise_aliases`), not this file's.
  *
- * IMPORTANT: 'unknown' is not a rejection. The dictionary being short is the app's
- * problem, not the lifter's — the UI must offer "log it as typed", which creates a
- * variant whose `base` is the normalised raw text. It gets a real trend line, and
- * future identical descriptions match into it. Never block logging mid-workout.
+ * DO NOT add alias lists or matching logic here. If the model gets something wrong, fix the
+ * prompt or the vocabulary — never add a hand-written override.
  */
 
-/** Movement vocabulary. `a` holds aliases; every word in an alias must appear in the input. */
-export const BASES = [
+/**
+ * Canonical movement names. The model is told to reuse one of these when it fits and to
+ * invent a new name only when nothing does. This is a convergence aid, NOT a whitelist —
+ * a movement missing from this list still resolves fine.
+ */
+export const VOCAB_BASES = [
   // chest
-  { k: 'bench press',       a: ['bench press', 'bench', 'flat press'],                                                m: 'pectorals',       p: 'chest' },
-  { k: 'incline press',     a: ['incline press', 'incline bench'],                                                    m: 'pectorals',       p: 'chest' },
-  { k: 'decline press',     a: ['decline press', 'decline bench'],                                                    m: 'pectorals',       p: 'chest' },
-  { k: 'chest press',       a: ['chest press'],                                                                       m: 'pectorals',       p: 'chest' },
-  { k: 'push-up',           a: ['push up', 'pushup', 'press up'],                                                     m: 'pectorals',       p: 'chest' },
-  { k: 'chest fly',         a: ['chest fly', 'fly', 'flye', 'pec deck', 'pec dec'],                                   m: 'pectorals',       p: 'chest' },
-  { k: 'dip',               a: ['dip', 'dips'],                                                                       m: 'triceps',         p: 'arms'  },
-
+  'bench press', 'incline press', 'decline press', 'chest press', 'chest fly', 'push-up', 'dip',
   // shoulders
-  { k: 'overhead press',    a: ['overhead press', 'ohp', 'shoulder press', 'military press', 'strict press'],          m: 'delts',           p: 'arms'  },
-  { k: 'push press',        a: ['push press'],                                                                        m: 'delts',           p: 'arms'  },
-  { k: 'arnold press',      a: ['arnold press'],                                                                      m: 'delts',           p: 'arms'  },
-  { k: 'lateral raise',     a: ['lateral raise', 'side raise', 'lat raise', 'side lateral'],                           m: 'delts',           p: 'arms'  },
-  { k: 'front raise',       a: ['front raise'],                                                                       m: 'delts',           p: 'arms'  },
-  { k: 'upright row',       a: ['upright row'],                                                                       m: 'delts',           p: 'arms'  },
-  { k: 'rear delt fly',     a: ['rear delt fly', 'reverse fly', 'rear delt', 'reverse pec deck'],                      m: 'delts',           p: 'arms'  },
-  { k: 'face pull',         a: ['face pull'],                                                                         m: 'upper back',      p: 'back'  },
-
+  'overhead press', 'push press', 'arnold press', 'lateral raise', 'front raise',
+  'upright row', 'rear delt fly', 'face pull',
   // back
-  { k: 'lat pulldown',      a: ['lat pulldown', 'pulldown', 'lat pull down'],                                         m: 'lats',            p: 'back'  },
-  { k: 'straight-arm pulldown', a: ['straight arm pulldown', 'straight arm pull down'],                                m: 'lats',            p: 'back'  },
-  { k: 'pull-up',           a: ['pull up', 'pullup', 'chin up', 'chinup'],                                            m: 'lats',            p: 'back'  },
-  { k: 'row',               a: ['row', 'barbell row', 'cable row', 'seated row', 't bar row', 'chest supported row', 'pendlay row', 'meadows row'], m: 'upper back', p: 'back' },
-  { k: 'pullover',          a: ['pullover'],                                                                          m: 'lats',            p: 'back'  },
-  { k: 'shrug',             a: ['shrug'],                                                                             m: 'traps',           p: 'back'  },
-  { k: 'back extension',    a: ['back extension', 'hyperextension', 'hyper extension'],                               m: 'spinal erectors', p: 'back'  },
-  { k: 'good morning',      a: ['good morning'],                                                                      m: 'hamstrings',      p: 'back'  },
-
+  'lat pulldown', 'straight-arm pulldown', 'pull-up', 'row', 'pullover', 'shrug',
+  'back extension', 'good morning',
   // arms
-  { k: 'curl',              a: ['curl', 'bicep curl', 'biceps curl', 'preacher curl', 'hammer curl', 'concentration curl', 'spider curl', 'drag curl'], m: 'biceps', p: 'arms' },
-  { k: 'reverse curl',      a: ['reverse curl'],                                                                      m: 'forearms',        p: 'arms'  },
-  { k: 'wrist curl',        a: ['wrist curl', 'forearm curl'],                                                        m: 'forearms',        p: 'arms'  },
-  { k: 'tricep extension',  a: ['tricep extension', 'triceps extension', 'overhead extension', 'skull crusher', 'skullcrusher', 'french press', 'jm press'], m: 'triceps', p: 'arms' },
-  { k: 'pushdown',          a: ['pushdown', 'push down', 'press down', 'pressdown'],                                  m: 'triceps',         p: 'arms'  },
-  { k: 'tricep kickback',   a: ['kickback', 'tricep kickback'],                                                       m: 'triceps',         p: 'arms'  },
-
+  'curl', 'reverse curl', 'preacher curl', 'wrist curl', 'tricep extension', 'pushdown',
+  'tricep kickback', 'skull crusher', 'jm press',
   // legs
-  { k: 'squat',             a: ['squat', 'back squat', 'front squat', 'hack squat', 'goblet squat', 'belt squat'],     m: 'quads',           p: 'legs'  },
-  { k: 'leg press',         a: ['leg press'],                                                                         m: 'quads',           p: 'legs'  },
-  { k: 'leg extension',     a: ['leg extension', 'knee extension', 'quad extension'],                                 m: 'quads',           p: 'legs'  },
-  { k: 'romanian deadlift', a: ['romanian deadlift', 'rdl', 'stiff leg deadlift'],                                    m: 'hamstrings',      p: 'legs'  },
-  { k: 'deadlift',          a: ['deadlift', 'rack pull'],                                                             m: 'hamstrings',      p: 'legs'  },
-  { k: 'hamstring curl',    a: ['hamstring curl', 'leg curl', 'ham curl'],                                            m: 'hamstrings',      p: 'legs'  },
-  { k: 'nordic curl',       a: ['nordic curl', 'nordic ham curl'],                                                    m: 'hamstrings',      p: 'legs'  },
-  { k: 'hip thrust',        a: ['hip thrust', 'glute bridge'],                                                        m: 'glutes',          p: 'legs'  },
-  { k: 'glute kickback',    a: ['glute kickback', 'cable kickback', 'hip extension'],                                 m: 'glutes',          p: 'legs'  },
-  { k: 'hip abduction',     a: ['hip abduction', 'abduction', 'abductor'],                                            m: 'glutes',          p: 'legs'  },
-  { k: 'hip adduction',     a: ['hip adduction', 'adduction', 'adductor'],                                            m: 'adductors',       p: 'legs'  },
-  { k: 'lunge',             a: ['lunge', 'split squat', 'bulgarian split squat'],                                     m: 'quads',           p: 'legs'  },
-  { k: 'step-up',           a: ['step up', 'stepup'],                                                                 m: 'quads',           p: 'legs'  },
-  { k: 'calf raise',        a: ['calf raise', 'calve raise', 'calf press'],                                           m: 'calves',          p: 'legs'  },
-
-  // core and full body — body_part is null; the four weekly-goal categories are
-  // chest/back/arms/legs, and the schema's check constraint permits null.
-  { k: 'crunch',            a: ['crunch', 'cable crunch', 'sit up', 'situp'],                                         m: 'abs',             p: null    },
-  { k: 'leg raise',         a: ['leg raise', 'hanging leg raise', 'knee raise'],                                      m: 'abs',             p: null    },
-  { k: 'ab wheel',          a: ['ab wheel', 'ab rollout', 'rollout'],                                                 m: 'abs',             p: null    },
-  { k: 'plank',             a: ['plank'],                                                                             m: 'abs',             p: null    },
-  { k: 'pallof press',      a: ['pallof press', 'pallof'],                                                            m: 'obliques',        p: null    },
-  { k: 'woodchop',          a: ['woodchop', 'wood chop'],                                                             m: 'obliques',        p: null    },
-  { k: 'clean',             a: ['clean', 'power clean', 'hang clean'],                                                 m: 'full body',       p: null    },
-  { k: 'snatch',            a: ['snatch', 'power snatch'],                                                            m: 'full body',       p: null    },
-  { k: 'thruster',          a: ['thruster'],                                                                          m: 'full body',       p: null    },
-  { k: 'farmer carry',      a: ['farmer carry', 'farmers carry', 'farmer walk', 'suitcase carry'],                     m: 'traps',           p: null    },
-  { k: 'sled push',         a: ['sled push', 'prowler push', 'sled'],                                                 m: 'quads',           p: null    },
+  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'deadlift',
+  'rack pull', 'hamstring curl', 'nordic curl', 'hip thrust', 'glute kickback',
+  'hip abduction', 'hip adduction', 'lunge', 'split squat', 'step-up', 'calf raise',
+  // core
+  'crunch', 'leg raise', 'ab wheel', 'plank', 'pallof press', 'woodchop', 'back extension',
+  // full body
+  'clean', 'snatch', 'thruster', 'farmer carry', 'sled push', 'kettlebell swing',
 ];
 
 /**
- * Modifier vocabulary. `c` groups them so the UI can order chips sensibly.
- * `n` is the loading explanation shown to the lifter — this is what makes a fork
- * feel like a reason rather than a bug.
+ * Canonical modifier strings, grouped by the dimension they vary. Grouping matters: the
+ * model is told a variant may carry at most one modifier per group, which stops it
+ * returning both "seated" and "standing", or both "rope" and "straight bar".
  */
-export const MODS = [
-  { k: 'narrow grip',     c: 'grip',       a: ['narrow grip', 'close grip'],                          n: 'Close grip shortens the shoulder moment arm and hands work to the triceps — usually 5–10% under your standard-grip top set at the same effort.' },
-  { k: 'wide grip',       c: 'grip',       a: ['wide grip'],                                          n: 'Wide grip lengthens the chest moment arm but cuts range of motion. Heavier per rep, shorter stroke.' },
-  { k: 'neutral grip',    c: 'grip',       a: ['neutral grip', 'hammer grip', 'parallel grip'],       n: 'Neutral grip is elbow-friendly and usually runs slightly stronger than pronated.' },
-  { k: 'supinated',       c: 'grip',       a: ['supinated', 'underhand', 'reverse grip'],             n: 'Underhand pulls more biceps into the movement — its own strength curve.' },
-  { k: 'thumbless',       c: 'grip',       a: ['thumbless', 'false grip', 'suicide grip'],            n: '' },
-  { k: 'straps',          c: 'grip',       a: ['straps', 'with straps'],                              n: 'Straps take grip out of the equation, so the number reflects the target muscle rather than your hands — not comparable to strapless sets.' },
-  { k: 'feet up',         c: 'stance',     a: ['feet up', 'feet elevated', 'legs up', 'feet on bench'], n: 'No leg drive and a narrower base. The pattern looks identical but the ceiling is lower — comparing it to a standard bench would read as a false plateau.' },
-  { k: 'sumo',            c: 'stance',     a: ['sumo'],                                               n: 'Wider stance, shorter bar path, more hip-dominant.' },
-  { k: 'staggered',       c: 'stance',     a: ['staggered', 'b stance'],                              n: 'One side does the work while the trail leg stabilizes — counts as unilateral volume.' },
-  { k: 'heel elevated',   c: 'stance',     a: ['heel elevated', 'heels elevated', 'heel raised', 'heels raised', 'on plates', 'squat shoes'], n: 'Raising the heels lets the knee travel further forward and keeps the torso upright, shifting the work onto the quads. It usually runs heavier than the same squat flat-footed, so the two are not comparable loads.' },
-  { k: 'toes elevated',   c: 'stance',     a: ['toes elevated', 'toe elevated', 'toes raised'],       n: 'Raising the toes does the reverse — the shin stays vertical, knee travel is limited and the hips take more of the lift. Expect a lighter bar than flat-footed at the same effort.' },
-  { k: 'close stance',    c: 'stance',     a: ['close stance', 'narrow stance'],                      n: '' },
-  { k: 'wide stance',     c: 'stance',     a: ['wide stance'],                                        n: '' },
-  { k: 'cuff',            c: 'attachment', a: ['cuff', 'ankle cuff', 'wrist cuff'],                   n: 'A cuff bypasses the grip and moves the load point higher up the forearm. Shorter moment arm at the elbow, so the stack runs heavier than a rope for the same triceps tension.' },
-  { k: 'rope',            c: 'attachment', a: ['rope'],                                               n: 'Rope allows end-range pronation and a longer moment arm at lockout — lighter stack for the same effort than a bar or cuff.' },
-  { k: 'straight bar',    c: 'attachment', a: ['straight bar', 'bar attachment'],                     n: 'Fixed pronation and a locked hand path — usually the heaviest pushdown attachment.' },
-  { k: 'ez bar',          c: 'attachment', a: ['ez bar', 'ezbar'],                                    n: 'Semi-supinated wrist angle, slightly less biceps peak tension than a straight bar.' },
-  { k: 'v-bar',           c: 'attachment', a: ['v bar', 'vbar'],                                      n: '' },
-  { k: 'single handle',   c: 'attachment', a: ['single handle', 'd handle', 'stirrup'],               n: '' },
-  { k: 'single arm',      c: 'side',       a: ['single arm', 'one arm', 'unilateral'],                n: 'One arm at a time: one fewer chain to stabilize and no bilateral deficit, so per-side load is not half the two-arm number.' },
-  { k: 'single leg',      c: 'side',       a: ['single leg', 'one leg'],                              n: 'Per-side load with a much higher stability cost.' },
-  { k: 'dumbbell',        c: 'implement',  a: ['dumbbell', 'dumbbells', 'db'],                        n: 'Per-hand load with a higher stabilizer demand than the barbell equivalent.' },
-  { k: 'barbell',         c: 'implement',  a: ['barbell', 'bb'],                                      n: '' },
-  { k: 'cable',           c: 'implement',  a: ['cable'],                                              n: 'Constant tension across the range — stack numbers are not comparable to free weight.' },
-  { k: 'machine',         c: 'implement',  a: ['machine', 'selectorized'],                            n: 'Fixed path; the machine carries the stability, so loads run higher than free weight.' },
-  { k: 'plate loaded',    c: 'implement',  a: ['plate loaded', 'plateloaded', 'hammer strength', 'iso lateral'], n: 'Plate-loaded machines report the plates you hung, not the resistance at your hands — leverage and carriage weight mean this number is only comparable to itself.' },
-  { k: 'smith',           c: 'implement',  a: ['smith machine', 'smith'],                             n: 'Fixed bar path removes the balance requirement.' },
-  { k: 'kettlebell',      c: 'implement',  a: ['kettlebell', 'kb'],                                   n: '' },
-  { k: 'seated',          c: 'angle',      a: ['seated'],                                             n: '' },
-  { k: 'standing',        c: 'angle',      a: ['standing'],                                           n: '' },
-  { k: 'incline',         c: 'angle',      a: ['incline'],                                            n: 'On an incline the stretched position carries the load, which usually means a lighter weight than the flat or standing version.' },
-  { k: 'decline',         c: 'angle',      a: ['decline'],                                            n: '' },
-  { k: 'preacher',        c: 'angle',      a: ['preacher'],                                           n: 'The pad blocks any swing and puts peak tension in the stretched position — expect less load than a standing curl.' },
-  { k: 'spider',          c: 'angle',      a: ['spider'],                                             n: '' },
-  { k: 'chest supported', c: 'angle',      a: ['chest supported'],                                    n: 'Chest support removes torso fatigue — pure back stimulus, higher usable load.' },
-  { k: 'bent over',       c: 'angle',      a: ['bent over'],                                          n: '' },
-  { k: 'lying',           c: 'angle',      a: ['lying', 'prone'],                                     n: '' },
-  { k: 'high to low',     c: 'angle',      a: ['high to low'],                                        n: 'Cable line from above biases the lower/sternal fibres.' },
-  { k: 'low to high',     c: 'angle',      a: ['low to high'],                                        n: 'Cable line from below biases the clavicular fibres.' },
-  { k: 'paused',          c: 'tempo',      a: ['paused', 'pause'],                                    n: 'A pause kills the stretch reflex. Same weight, different stimulus — it gets its own trend line on purpose.' },
-  { k: 'slow eccentric',  c: 'tempo',      a: ['slow eccentric', 'tempo', 'controlled eccentric'],    n: 'Longer time under tension at a lower absolute load.' },
-  { k: 'deficit',         c: 'rom',        a: ['deficit'],                                            n: 'Extra range at the bottom — expect a lower load than the standard version.' },
-  { k: 'pin',             c: 'rom',        a: ['pins', 'rack pull', 'pin press'],                     n: 'Dead-stop from pins removes elastic energy.' },
-  { k: 'partial',         c: 'rom',        a: ['partial', 'partials', 'lengthened partial'],          n: 'Shortened range, higher load — not comparable to full-ROM sets.' },
-  { k: 'assisted',        c: 'load',       a: ['assisted'],                                           n: 'Assistance is subtracted from bodyweight, so the number goes DOWN as you get stronger. This trend line runs backwards from every other one.' },
-  { k: 'weighted',        c: 'load',       a: ['weighted', 'added weight'],                           n: 'Added load on top of bodyweight — only the added weight is tracked, so bodyweight changes move this trend without any change in strength.' },
-  { k: 'bodyweight',      c: 'load',       a: ['bodyweight', 'body weight'],                          n: '' },
-  { k: 'banded',          c: 'load',       a: ['banded', 'with bands', 'bands'],                      n: 'Accommodating resistance: bar weight alone understates the top-end load.' },
-  { k: 'chains',          c: 'load',       a: ['chains'],                                             n: '' },
+export const VOCAB_MODS = {
+  implement: ['barbell', 'dumbbell', 'cable', 'machine', 'smith machine', 'kettlebell',
+    'plate loaded', 'bodyweight', 'band', 'landmine', 'trap bar', 'ez bar', 'safety bar'],
+  attachment: ['rope', 'straight bar', 'v-bar', 'single handle', 'cuff', 'wide bar',
+    'lat bar', 'stirrup'],
+  grip: ['narrow grip', 'wide grip', 'neutral grip', 'supinated', 'pronated', 'mixed grip',
+    'false grip', 'hook grip'],
+  stance: ['feet up', 'heel elevated', 'toes elevated', 'sumo', 'conventional', 'staggered',
+    'wide stance', 'narrow stance', 'b stance'],
+  angle: ['seated', 'standing', 'lying', 'prone', 'incline', 'decline', 'chest supported',
+    'bent over', 'kneeling', 'high to low', 'low to high', 'behind the neck', 'front rack',
+    'zercher', 'overhead'],
+  tempo: ['paused', 'slow eccentric', 'explosive', 'cluster', '1.5 rep'],
+  rom: ['deficit', 'partial', 'lengthened partial', 'pin', 'block', 'floor', 'full rom'],
+  load: ['banded', 'chains', 'accommodating resistance'],
+  side: ['single arm', 'single leg', 'alternating'],
+};
+
+/** Flat list, for prompt construction and validation. */
+export const ALL_MODS = Object.values(VOCAB_MODS).flat();
+
+/**
+ * Canonical muscle names. This is the vocabulary that makes cross-movement fatigue
+ * detection possible — if the model calls it "tricep" one week and "triceps brachii" the
+ * next, weekly volume per muscle becomes meaningless.
+ */
+export const MUSCLES = [
+  'pectorals', 'upper chest',
+  'lats', 'upper back', 'traps', 'lower back',
+  'front delts', 'side delts', 'rear delts',
+  'biceps', 'triceps', 'brachialis', 'forearms',
+  'quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors',
+  'abs', 'obliques',
 ];
 
-const MOD_ORDER = ['side', 'implement', 'attachment', 'grip', 'stance', 'angle', 'tempo', 'rom', 'load'];
-
 /**
- * Words that carry no loading information, so leaving them unexplained shouldn't trigger
- * an AI call. Everything else the lifter types must be accounted for.
- */
-const STOPWORDS = new Set([
-  'a', 'an', 'the', 'and', 'with', 'of', 'for', 'to', 'at', 'in', 'on', 'my', 'me',
-  'using', 'use', 'used', 'plus', 'both', 'set', 'sets', 'rep', 'reps', 'x', 'then',
-  'from', 'some', 'it', 'today', 'warmup', 'warm', 'superset', 'first', 'last',
-  'second', 'third', 'heavy', 'light', 'easy', 'hard', 'quick', 'normal', 'regular',
-  'standard', 'usual',
-]);
-
-/**
- * Every word that appears in a movement name. These are the nouns lifts are built from
- * ("press", "row", "curl"), so an unmatched one means the dictionary is missing a
- * variation of something it knows — not that the lifter described a load the app can't
- * account for. "landmine press" is missing 'landmine', not 'press'.
- */
-const BASE_VOCAB = new Set(
-  BASES.flatMap((b) => [b.k, ...b.a]).flatMap((phrase) => phrase.split(' '))
-);
-
-/** Thresholds. Tune these if matching feels too eager or too shy. */
-export const MATCH_THRESHOLD = 0.75;
-export const CLOSE_THRESHOLD = 0.30;
-
-const normalize = (t) =>
-  ' ' + String(t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
-
-/** Every word of the alias must be present (order-independent, so "incline dumbbell press" hits "incline press"). */
-const hasAll = (text, alias) =>
-  alias.split(' ').every((w) => text.includes(` ${w} `) || text.includes(` ${w}s `));
-
-/**
- * Free text -> movement + modifiers + anything left unaccounted for.
+ * Broad grouping, for weekly training goals.
  *
- * `unexplained` is the important one. A dictionary that silently drops the words it
- * doesn't know will read "heel elevated barbell squat" as a plain barbell squat and merge
- * two genuinely different lifts into one trend line — invisibly, at full confidence. So
- * every word has to be either consumed by the matched movement, consumed by a matched
- * modifier, or a stopword. Anything else means the dictionary did NOT fully understand
- * the input, and the AI layer has to decide.
+ * Widened from the original chest/back/arms/legs. Shoulders were being filed under arms and
+ * core had nowhere to go at all, which made per-muscle volume dishonest the moment anyone
+ * trained delts directly.
  */
-export function parse(text) {
-  const t = normalize(text);
+export const BODY_PARTS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
 
-  // longest matching alias wins, so "hamstring curl" beats "curl"
-  let base = null, best = 0, baseAlias = '';
-  for (const b of BASES) {
-    for (const alias of b.a) {
-      if (hasAll(t, alias) && alias.length > best) { best = alias.length; base = b; baseAlias = alias; }
-    }
-  }
+/** Which body part a muscle rolls up into. */
+export const MUSCLE_TO_PART = {
+  pectorals: 'chest', 'upper chest': 'chest',
+  lats: 'back', 'upper back': 'back', traps: 'back', 'lower back': 'back',
+  'front delts': 'shoulders', 'side delts': 'shoulders', 'rear delts': 'shoulders',
+  biceps: 'arms', triceps: 'arms', brachialis: 'arms', forearms: 'arms',
+  quads: 'legs', hamstrings: 'legs', glutes: 'legs', calves: 'legs',
+  adductors: 'legs', abductors: 'legs',
+  abs: 'core', obliques: 'core',
+};
 
-  const baseWords = base ? base.k.split(' ') : [];
+/**
+ * Set-counting weight per role. A secondary muscle takes real but partial stimulus, and
+ * counting it as a full set would make every pressing movement look like shoulder volume.
+ * Half is the usual convention in the hypertrophy literature and it is honest enough for
+ * "you have done 14 sets of chest this week".
+ */
+export const ROLE_WEIGHT = { primary: 1, secondary: 0.5 };
 
-  // track which alias matched each modifier, so we know which words it accounts for
-  const hits = [];
-  for (const m of MODS) {
-    const alias = m.a.find((a) => hasAll(t, a));
-    // a modifier already implied by the movement name is not a modifier
-    if (alias && !m.k.split(' ').every((w) => baseWords.includes(w))) hits.push({ m, alias });
-  }
-  hits.sort((a, b) => MOD_ORDER.indexOf(a.m.c) - MOD_ORDER.indexOf(b.m.c));
-  const mods = hits.map((h) => h.m);
-
-  const explained = new Set();
-  const add = (phrase) => String(phrase).split(' ').forEach((w) => w && explained.add(w));
-  add(baseAlias);
-  add(baseWords.join(' '));
-  hits.forEach((h) => { add(h.alias); add(h.m.k); });
-
-  const unexplained = t.trim().split(' ').filter((w) => {
-    if (!w || STOPWORDS.has(w) || /^\d/.test(w)) return false;
-    const singular = w.replace(/s$/, '');
-    if (BASE_VOCAB.has(w) || BASE_VOCAB.has(singular)) return false;
-    return !explained.has(w) && !explained.has(singular) && !explained.has(w + 's');
-  });
-
-  return { base, mods, unexplained };
+/** Lowercase, collapse whitespace, strip punctuation. The cache key. */
+export function normalizePhrase(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s+-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-/** Title-cased movement. Modifiers are shown as chips rather than crammed into the name. */
+/**
+ * Looser key, for comparing two phrases to each other — NOT for the cache.
+ *
+ * `normalizePhrase` keeps hyphens, because canonical names contain them (`push-up`,
+ * `straight-arm pulldown`, `v-bar`) and the cache key has to be stable. But a lifter who
+ * writes "feet-up bench" one week and "feet up bench" the next means the same lift, and an
+ * exact-match gate that says otherwise sends them to the model for a phrase they already
+ * have. Folding hyphens to spaces here fixes the comparison without touching the key.
+ */
+function matchKey(text) {
+  return normalizePhrase(text).replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Title-cased movement name for display. Modifiers render as chips, not in the name. */
 export function canonicalLabel(base) {
-  return String(base || '').split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-/** Normalised free text, for use as the `base` of an unrecognised movement. */
-export function rawBase(text) {
-  return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return String(base || '')
+    .split(' ')
+    .map((w) => (w.length <= 2 && w !== 'ab' ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
 }
 
 /**
- * Cheap junk filter, run BEFORE the AI fallback.
+ * Free junk filter, client-side, before anything costs money.
  *
- * Two jobs: stop obvious garbage from costing a model call, and give immediate feedback
- * instead of a second of spinner. It is deliberately high-precision and low-recall — it
- * only rejects things that cannot possibly be an exercise. Deciding whether a plausible
- * phrase is actually a lift is the model's job, because that needs meaning, not regex.
- *
- * Returns { ok: true } or { ok: false, reason } where reason is display-ready copy.
+ * Deliberately permissive: it only rejects input that CANNOT be an exercise. Anything
+ * plausible goes to the model, which is far better at judging than a regex. The model's own
+ * refusal is the real filter; this just stops keyboard mashing and obvious nonsense from
+ * being billable.
  */
 export function isPlausibleExercise(text) {
-  const t = String(text || '').trim();
-
-  if (t.length < 3) return { ok: false, reason: 'Too short to be an exercise.' };
-  if (t.length > 120) return { ok: false, reason: 'That is longer than an exercise name. Describe just the movement.' };
-
-  const letters = t.replace(/[^a-z]/gi, '');
-  if (letters.length < 3) return { ok: false, reason: 'That needs to be a movement name.' };
-  if (!/[aeiouy]/i.test(letters)) return { ok: false, reason: 'That does not look like words.' };
-
-  // "aaaaaa", "!!!!!!"
-  if (/^(.)\1+$/.test(t.replace(/\s/g, ''))) return { ok: false, reason: 'That does not look like words.' };
-
-  // keyboard runs
-  const flat = letters.toLowerCase();
-  const RUNS = ['qwerty', 'asdf', 'zxcv', 'qwer', 'hjkl', 'abcdef'];
-  if (RUNS.some((r) => flat.includes(r))) return { ok: false, reason: 'That does not look like words.' };
-
-  // needs at least one real word
-  if (!t.split(/\s+/).some((w) => w.replace(/[^a-z]/gi, '').length >= 3)) {
-    return { ok: false, reason: 'That needs to be a movement name.' };
+  const t = normalizePhrase(text);
+  if (!t) return { ok: false, reason: 'Type what you did.' };
+  if (t.length < 3) return { ok: false, reason: 'A bit more detail — name the movement.' };
+  if (t.length > 120) return { ok: false, reason: 'Too long. Just name the movement and how you did it.' };
+  // A run of consonants this long is keyboard mashing, not a word. Five rather than six:
+  // "asdfgh" is a home-row smash whose "sdfgh" is exactly five.
+  //
+  // There is deliberately NO "must contain a vowel" rule. Lifters type abbreviations —
+  // SLDL, RDL, OHP, BSS — and every one of them is vowel-free. Rejecting those locally
+  // would be the same mistake as the old dictionary: a hand-written rule overruling the
+  // model on input it would have handled correctly. Vowel-free mashing ("xzcvbnm") is
+  // caught by the consonant run anyway, which is the honest signal.
+  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(t)) {
+    return { ok: false, reason: "That does not look like an exercise." };
   }
-
+  if (/^(.)\1+$/.test(t.replace(/\s/g, ''))) {
+    return { ok: false, reason: "That does not look like an exercise." };
+  }
   return { ok: true };
 }
 
 /**
- * Overlap score between two modifier sets.
- * Intersection over the LARGER set: adding a modifier the other lacks costs you,
- * but two sets that fully agree score 1 regardless of size.
+ * Autocomplete from the lifter's own history. Free, offline, and the fastest path for
+ * anything they train regularly — most logging should never reach the model at all.
  */
-export function scoreMods(a = [], b = []) {
-  const denom = Math.max(a.length, b.length);
-  if (denom === 0) return 1;
-  return b.filter((x) => a.includes(x)).length / denom;
+export function suggest(text, variants = [], limit = 8) {
+  const q = matchKey(text);
+  const ranked = [...variants].sort((a, b) => (b.uses || 0) - (a.uses || 0));
+  if (!q) return ranked.slice(0, limit);
+
+  const words = q.split(' ').filter((w) => w.length > 1);
+  const scored = ranked
+    .map((v) => {
+      const hay = matchKey(
+        `${v.base} ${(v.mods || []).join(' ')} ${v.source_text || ''} ${v.muscle || ''}`
+      );
+      const hits = words.filter((w) => hay.includes(w)).length;
+      // Exactness is judged against what identifies the variant — the phrase they typed, or
+      // its full tag set — never the whole haystack. The haystack also carries the muscle,
+      // so it can essentially never equal the query, which silently disabled this tie-break
+      // and let a more-used near-match outrank an exact one ("bench press" landing on the
+      // feet-up narrow-grip variant instead of the plain one).
+      const exact =
+        matchKey(v.source_text || '') === q ||
+        matchKey(`${v.base} ${(v.mods || []).join(' ')}`) === q
+          ? 1
+          : 0;
+      return { v, hits, exact };
+    })
+    .filter((s) => s.hits > 0)
+    .sort((a, b) => b.exact - a.exact || b.hits - a.hits || (b.v.uses || 0) - (a.v.uses || 0));
+
+  return scored.slice(0, limit).map((s) => s.v);
 }
 
 /**
- * @param {string} text            what the lifter typed
- * @param {Array}  variants        this user's registry: { id, base, mods[], uses }
- * @returns {{status,base,mods,modObjs,match,score,note,raw}}
+ * Has this lifter logged this exact phrase before?
+ *
+ * The zero-cost, zero-latency path — checked against variants already in memory, so a
+ * repeated exercise resolves instantly and offline. `source_text` is what they originally
+ * typed, so this hits whenever they describe it the same way twice.
  */
-export function resolve(text, variants = []) {
-  // A movement previously logged as typed lives in the registry with the raw phrase as
-  // its base. Check that FIRST — otherwise "jefferson curl" parses to base "curl", never
-  // matches its own raw variant, and forks a second trend line every time it is logged.
-  // This is also what stops repeat raw phrases reaching the paid AI layer at all.
-  const { base, mods, unexplained } = parse(text);
-
-  // Only when the phrase isn't itself a dictionary base, though. For "bench press" the
-  // raw text and the parsed base are the same string, and taking the shortcut would
-  // return whichever bench variant sits first in the registry while ignoring modifiers —
-  // silently merging a plain bench into the feet-up trend line.
-  const raw = rawBase(text);
-  const rawMatch = raw === base?.k ? null : variants.find((v) => v.base === raw);
-
-  // Words the dictionary couldn't account for become a single modifier tag. That keeps
-  // the lift categorised while still forcing it onto its own trend line, so the worst
-  // case (AI unreachable) is an odd-looking tag rather than a silent merge.
-  const extra = unexplained.length ? [unexplained.join(' ')] : [];
-  const keys = [...mods.map((m) => m.k), ...extra].sort();
-
-  if (rawMatch) {
-    return {
-      status: 'match',
-      base: { k: rawMatch.base, m: rawMatch.muscle ?? null, p: rawMatch.body_part ?? null },
-      mods: [...(rawMatch.mods || [])].sort(),
-      modObjs: mods,
-      match: rawMatch,
-      score: 1,
-      note: '',
-      raw: text,
-    };
-  }
-
-  if (!base) {
-    // Unrecognised movement. The UI must still let the lifter log it — pass
-    // { base: { k: rawBase(text), m: null, p: null }, mods: keys } to variant creation.
-    //
-    // Only the modifiers actually recognised, not the unexplained tag: this path already
-    // escalates on status alone, and folding the leftover words in here would write junk
-    // like "thing" into the registry as a real modifier.
-    return {
-      status: 'unknown',
-      raw: text,
-      base: null,
-      mods: mods.map((m) => m.k).sort(),
-      modObjs: mods,
-      match: null,
-      score: 0,
-      note: '',
-      unexplained,
-      needsAI: extra.length > 0,
-    };
-  }
-
-  let match = null, score = -1;
-  for (const v of variants.filter((v) => v.base === base.k)) {
-    const s = scoreMods(v.mods || [], keys);
-    if (s > score) { score = s; match = v; }
-  }
-
-  let status = 'new';
-  if (match && score >= MATCH_THRESHOLD) status = 'match';
-  else if (match && score >= CLOSE_THRESHOLD) status = 'close';
-
-  return {
-    status,
-    base,
-    mods: keys,
-    modObjs: mods,
-    match: status === 'new' ? null : match,
-    score: Math.max(0, score),
-    note: mods.map((m) => m.n).filter(Boolean).slice(0, 2).join(' '),
-    // The dictionary read the movement but not all of the description, so it cannot claim
-    // a confident answer. resolveExercise escalates these to the cache and the model, and
-    // only falls back to the reading above if neither is reachable.
-    unexplained,
-    needsAI: extra.length > 0,
-    raw: text,
-  };
+export function findLocal(text, variants = []) {
+  const q = matchKey(text);
+  if (!q) return null;
+  return variants.find((v) => matchKey(v.source_text || '') === q) || null;
 }
 
-/** Suggestions for the type-ahead: the lifter's own variants, most-used first. */
-export function suggest(text, variants = [], limit = 8) {
-  const q = normalize(text).trim();
-  const ranked = [...variants].sort((a, b) => (b.uses || 0) - (a.uses || 0));
-  if (!q) return ranked.slice(0, limit);
-  const words = q.split(' ').filter((w) => w.length > 1);
-  return ranked
-    .filter((v) => {
-      const hay = normalize(`${v.base} ${(v.mods || []).join(' ')} ${v.muscle || ''}`);
-      return words.some((w) => hay.includes(w));
-    })
-    .slice(0, limit);
+/** Set counts per muscle across a list of resolved variants. Drives per-muscle volume. */
+export function muscleSetCounts(sets = [], variantsById = {}) {
+  const counts = {};
+  for (const s of sets) {
+    const variant = variantsById[s.variant_id];
+    if (!variant) continue;
+    const muscles = Array.isArray(variant.muscles) ? variant.muscles : [];
+    for (const m of muscles) {
+      const weight = ROLE_WEIGHT[m.role] ?? 0;
+      if (!weight) continue;
+      counts[m.name] = (counts[m.name] || 0) + weight;
+    }
+  }
+  return counts;
 }

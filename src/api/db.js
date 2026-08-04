@@ -56,7 +56,9 @@ export const variants = {
    * does the deduping — two clients racing on the same description cannot fork
    * the trend line.
    */
-  ensure: async ({ base, mods = [], muscle, body_part, source_text, resolved_by, load_note, confidence }) => {
+  ensure: async ({
+    base, mods = [], muscle, muscles, body_part, source_text, resolved_by, load_note, confidence,
+  }) => {
     const row = {
       user_id: await uid(),
       base,
@@ -65,11 +67,15 @@ export const variants = {
       body_part,
       source_text,
       // Provenance (migration 002). Only sent when known — an upsert that omits a column
-      // leaves it alone, so re-logging a variant from the dictionary can't wipe the
-      // loading explanation the AI wrote the first time round.
+      // leaves it alone, so re-logging a variant the model already explained can't wipe
+      // the loading note it wrote the first time round.
       ...(resolved_by ? { resolved_by } : {}),
       ...(load_note ? { load_note } : {}),
       ...(confidence ? { confidence } : {}),
+      // Muscles (migration 004) — what makes cross-movement fatigue detection possible.
+      // Omitted rather than sent empty when unknown, for the same reason as above: an
+      // unresolved re-log must not erase muscles a previous resolve established.
+      ...(muscles?.length ? { muscles } : {}),
     };
     return supabase.from('exercise_variants')
       .upsert(row, { onConflict: 'user_id,base,mods' })

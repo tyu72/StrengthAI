@@ -1,172 +1,123 @@
 /**
- * Three-layer exercise resolution.
+ * Client-side resolver orchestration.
  *
- *   1. Local dictionary   — instant, free, works offline. Covers most input.
- *   2. Alias cache        — every phrase the AI has ever resolved, shared across users.
- *                           Instant and free from the second time anyone types it.
- *   3. AI (Edge Function) — reached only for phrasing neither layer has seen.
+ * Three gates, cheapest first. Only the last one costs anything:
  *
- * The consequence: the app gets cheaper and faster the longer it is used, and layers 1
- * and 2 keep working with no signal — which matters, because gym basements have none and
- * a resolver that needs the internet fails exactly when you need it.
+ *   1. findLocal   — this lifter typed this exact phrase before. Instant, offline, free.
+ *   2. junk filter — obvious nonsense never becomes a billable call.
+ *   3. edge fn     — shared cache, then the model. One call per novel phrase, ever.
  *
- * Every path ends somewhere the lifter can still log the set. Refusing to record what
- * they did because the app doesn't recognise a phrase is never acceptable.
+ * Everything the UI needs to distinguish is in `status`. Nothing here decides what an
+ * exercise IS — that is the model's job now.
  */
-import { supabase } from './db.js';
-import { resolve as resolveLocal, isPlausibleExercise, rawBase, BASES, MODS } from '../lib/resolver.js';
-
-const KNOWN_BASES = BASES.map((b) => b.k);
-const KNOWN_MODS = MODS.map((m) => m.k);
-
-/** Look the phrase up in the shared + personal alias cache. */
-async function fromCache(phrase) {
-  const { data, error } = await supabase
-    .from('exercise_aliases')
-    .select('*')
-    .eq('phrase', phrase)
-    // a personal row (from a low-confidence resolution) wins over the shared one
-    .order('user_id', { ascending: false, nullsFirst: false })
-    .limit(1);
-
-  if (error) {
-    console.warn('[resolver] alias cache unavailable', error.message);
-    return null;
-  }
-  return data?.[0] ?? null;
-}
+import { supabase } from './db';
+import { findLocal, isPlausibleExercise, normalizePhrase } from '@/lib/resolver';
 
 /**
- * @param {string} text        what the lifter typed
- * @param {Array}  variants    their registry, for match/close scoring
- * @returns {Promise<object>}  a resolution the UI can render:
- *   { status, base, mods, match, note, source, confidence, reason? }
- *   status: 'match' | 'close' | 'new' | 'rejected' | 'unresolved'
+ * @returns {Promise<{
+ *   status: 'known'|'resolved'|'rejected'|'unresolved',
+ *   base?, mods?, muscles?, muscle?, body_part?, note?, confidence?, source?,
+ *   variant?, reason?, raw
+ * }>}
+ *
+ * status meanings:
+ *   known      — matches a variant this lifter already has; keep logging to that trend line
+ *   resolved   — the model (or the shared cache) identified it; new or existing variant
+ *   rejected   — not an exercise. The only status that blocks logging.
+ *   unresolved — could not reach the model, or the monthly cap is hit. NEVER blocks:
+ *                the lifter logs it as typed and it can be re-resolved later. A workout
+ *                must always be loggable, even offline, even out of credit.
  */
 export async function resolveExercise(text, variants = []) {
-  // ---- Layer 1: dictionary
-  const local = resolveLocal(text, variants);
+  const raw = String(text || '').trim();
+  const phrase = normalizePhrase(raw);
 
-  // A confident dictionary answer accounts for every word typed. If some went
-  // unexplained, the dictionary read the movement but not the whole description — the
-  // difference between "barbell squat" and "heel elevated barbell squat" — so it must not
-  // claim a match. Escalate, and keep the local reading only as an offline fallback.
-  if (local.status !== 'unknown' && !local.needsAI) {
-    return { ...local, source: 'dictionary', confidence: 'high' };
+  // ---- gate 1: their own history --------------------------------------------------
+  const local = findLocal(raw, variants);
+  if (local) {
+    return {
+      status: 'known',
+      variant: local,
+      base: local.base,
+      mods: local.mods ?? [],
+      muscles: local.muscles ?? [],
+      muscle: local.muscle,
+      body_part: local.body_part,
+      note: local.note ?? '',
+      confidence: 'high',
+      source: 'local',
+      raw,
+    };
   }
 
-  // Junk gate. Free, instant, and stops obvious garbage from costing a model call.
-  const plausible = isPlausibleExercise(text);
+  // ---- gate 2: junk ---------------------------------------------------------------
+  const plausible = isPlausibleExercise(phrase);
   if (!plausible.ok) {
-    return { status: 'rejected', reason: plausible.reason, raw: text, source: 'local' };
+    return { status: 'rejected', reason: plausible.reason, source: 'local', raw };
   }
 
-  const phrase = rawBase(text);
-
-  // ---- Layer 2: alias cache
-  const cached = await fromCache(phrase);
-  if (cached) {
-    return scoreAgainstRegistry(
-      {
-        base: { k: cached.base, m: cached.muscle, p: cached.body_part },
-        mods: cached.mods ?? [],
-        note: cached.note ?? '',
-        confidence: cached.confidence,
-        source: 'cache',
-      },
-      variants,
-      text
-    );
-  }
-
-  // ---- Layer 3: AI
+  // ---- gate 3: cache, then the model ----------------------------------------------
   try {
+    // Send the most-used slice of their registry so the model reuses their existing tags
+    // rather than inventing a parallel name for a lift they already train. Capped at 40 to
+    // keep the prompt — and the per-call cost — bounded.
+    const registry = [...variants]
+      .sort((a, b) => (b.uses || 0) - (a.uses || 0))
+      .slice(0, 40)
+      .map((v) => ({ base: v.base, mods: v.mods ?? [] }));
+
     const { data, error } = await supabase.functions.invoke('resolve-exercise', {
-      body: {
-        text,
-        knownBases: KNOWN_BASES,
-        knownMods: KNOWN_MODS,
-        userBases: [...new Set(variants.map((v) => v.base))],
-      },
+      body: { text: phrase, registry },
     });
 
     if (error) throw error;
 
     if (data?.ok === false) {
-      // The model judged it not an exercise, or the daily cap was hit. Both are honest
-      // rejections with copy written for the lifter.
+      // Rejected is a judgment; capped and unavailable are failures. Only the first blocks.
+      if (data.rejected) {
+        return { status: 'rejected', reason: data.reason, source: 'ai', raw };
+      }
       return {
-        status: data.capped ? 'unresolved' : 'rejected',
-        reason: data.reason,
-        raw: text,
-        source: 'ai',
+        status: 'unresolved',
+        reason: data.reason ?? 'I could not reach the coach just now.',
+        capped: !!data.capped,
+        raw,
       };
     }
 
-    return scoreAgainstRegistry(
-      {
-        base: { k: data.base, m: data.muscle, p: data.body_part },
-        mods: data.mods ?? [],
-        note: data.note ?? '',
-        confidence: data.confidence,
-        source: 'ai',
-      },
-      variants,
-      text
-    );
+    return {
+      status: 'resolved',
+      base: data.base,
+      mods: data.mods ?? [],
+      muscles: data.muscles ?? [],
+      muscle: data.muscle,
+      body_part: data.body_part,
+      note: data.note ?? '',
+      confidence: data.confidence ?? 'high',
+      source: data.source ?? 'ai',
+      raw,
+    };
   } catch (err) {
-    // Offline, function down, or out of credit. Never a dead end.
-    console.warn('[resolver] AI fallback unavailable', err?.message ?? err);
-
-    // If the dictionary got the movement and only some describing words were unclear,
-    // fall back to that reading. The unexplained words are already folded in as a
-    // modifier tag, so it lands as 'close' or 'new' against the registry rather than
-    // silently merging into an existing trend line.
-    if (local.status !== 'unknown') {
-      return { ...local, source: 'offline', confidence: 'low' };
-    }
-
+    // Loud in the console, soft in the UI. Offline is not an error the lifter caused, and
+    // they are standing at a rack — never block the log.
+    console.error('[resolveExercise] failed', err);
     return {
       status: 'unresolved',
-      reason: 'I could not reach the coach just now. Log it as typed — it still gets its own trend line.',
-      raw: text,
-      source: 'offline',
+      reason: 'I could not reach the coach just now — logging it as you typed it.',
+      raw,
     };
   }
 }
 
-/**
- * Once a base and mods exist — from any layer — scoring against the lifter's registry is
- * identical, so match/close/new behaves the same whether the answer came from the
- * dictionary, the cache or the model.
- */
-function scoreAgainstRegistry(resolved, variants, text) {
-  const keys = [...resolved.mods].sort();
-  let match = null;
-  let score = -1;
-
-  for (const v of variants.filter((v) => v.base === resolved.base.k)) {
-    const denom = Math.max((v.mods || []).length, keys.length);
-    const s = denom === 0 ? 1 : keys.filter((k) => (v.mods || []).includes(k)).length / denom;
-    if (s > score) {
-      score = s;
-      match = v;
-    }
-  }
-
-  let status = 'new';
-  if (match && score >= 0.75) status = 'match';
-  else if (match && score >= 0.3) status = 'close';
-
+/** Shape for `variants.ensure` when logging an unresolved phrase as typed. */
+export function asTypedVariant(raw) {
   return {
-    status,
-    base: resolved.base,
-    mods: keys,
-    match: status === 'new' ? null : match,
-    score: Math.max(0, score),
-    note: resolved.note,
-    source: resolved.source,
-    confidence: resolved.confidence,
-    raw: text,
+    base: normalizePhrase(raw),
+    mods: [],
+    muscles: [],
+    muscle: null,
+    body_part: null,
+    source_text: raw,
+    resolved_by: 'manual',
   };
 }
