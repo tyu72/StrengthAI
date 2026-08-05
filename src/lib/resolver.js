@@ -41,7 +41,8 @@ export const VOCAB_BASES = [
   'curl', 'reverse curl', 'preacher curl', 'wrist curl', 'tricep extension', 'pushdown',
   'tricep kickback', 'skull crusher', 'jm press',
   // legs
-  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'deadlift',
+  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'stiff leg deadlift',
+  'deadlift',
   'rack pull', 'hamstring curl', 'nordic curl', 'hip thrust', 'glute kickback',
   'hip abduction', 'hip adduction', 'lunge', 'split squat', 'step-up', 'calf raise',
   // core
@@ -98,6 +99,65 @@ export const MUSCLES = [
  * trained delts directly.
  */
 export const BODY_PARTS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
+
+/**
+ * Joint actions. The third axis after muscle and modifier.
+ *
+ * Anatomical, not gym vernacular: "vertical push" is a trainer's category, whereas a
+ * machine shoulder press is shoulder abduction plus elbow extension. The joint action is
+ * what is objectively true about the movement, and it is what accumulates — elbow extension
+ * fatigue builds across bench, dips and pushdowns regardless of what those lifts are called.
+ *
+ * A lift has as many actions as it has working joints, so this is an ARRAY per variant.
+ * Isometric trunk demands (anti-extension on a plank) count; passive stabilising does not.
+ */
+export const JOINT_ACTIONS = [
+  // glenohumeral
+  'shoulder flexion', 'shoulder extension', 'shoulder abduction', 'shoulder adduction',
+  'shoulder horizontal adduction', 'shoulder horizontal abduction',
+  'shoulder internal rotation', 'shoulder external rotation',
+  // scapular
+  'scapular retraction', 'scapular protraction', 'scapular elevation', 'scapular depression',
+  // elbow / wrist
+  'elbow flexion', 'elbow extension', 'wrist flexion', 'wrist extension',
+  // hip / knee / ankle
+  'hip extension', 'hip flexion', 'hip abduction', 'hip adduction',
+  'knee extension', 'knee flexion',
+  'plantarflexion', 'dorsiflexion',
+  // trunk
+  'spinal flexion', 'spinal extension', 'spinal rotation', 'lateral flexion',
+  'anti-extension', 'anti-rotation', 'anti-lateral-flexion',
+];
+
+/**
+ * Antagonist pairs, for balance checks. A week of shoulder horizontal adduction with no
+ * horizontal abduction is a finding even when chest and back volume both look reasonable,
+ * because the imbalance is at the joint rather than in the muscle totals.
+ */
+export const ACTION_ANTAGONIST = {
+  'shoulder flexion': 'shoulder extension',
+  'shoulder extension': 'shoulder flexion',
+  'shoulder abduction': 'shoulder adduction',
+  'shoulder adduction': 'shoulder abduction',
+  'shoulder horizontal adduction': 'shoulder horizontal abduction',
+  'shoulder horizontal abduction': 'shoulder horizontal adduction',
+  'shoulder internal rotation': 'shoulder external rotation',
+  'shoulder external rotation': 'shoulder internal rotation',
+  'scapular retraction': 'scapular protraction',
+  'scapular protraction': 'scapular retraction',
+  'scapular elevation': 'scapular depression',
+  'scapular depression': 'scapular elevation',
+  'elbow flexion': 'elbow extension',
+  'elbow extension': 'elbow flexion',
+  'hip extension': 'hip flexion',
+  'hip flexion': 'hip extension',
+  'hip abduction': 'hip adduction',
+  'hip adduction': 'hip abduction',
+  'knee extension': 'knee flexion',
+  'knee flexion': 'knee extension',
+  'spinal flexion': 'spinal extension',
+  'spinal extension': 'spinal flexion',
+};
 
 /** Which body part a muscle rolls up into. */
 export const MUSCLE_TO_PART = {

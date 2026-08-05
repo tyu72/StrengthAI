@@ -316,22 +316,61 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <sc-if value="{{ isCoach }}" hint-placeholder-val="{{ false }}">
 <div style="padding:14px 18px 128px">
 <div style="display:flex;align-items:center;gap:8px"><div style="font-size:22px;font-weight:700;letter-spacing:-.025em">Coach</div></div>
-<div style="font-size:12.5px;color:#8A928C;margin:4px 0 18px;line-height:1.45">Everything below is derived from sets you actually logged.</div>
+<div style="font-size:12.5px;color:#8A928C;margin:4px 0 18px;line-height:1.45">{{ coachSub }}</div>
 
-<sc-if value="{{ hasProgramRec }}" hint-placeholder-val="{{ true }}">
-<div style="border:1px solid rgba(242,181,68,.32);background:rgba(242,181,68,.06);border-radius:20px;padding:16px;margin-bottom:22px">
-<div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><i style="font-size:17px;color:#F2B544">hub</i><div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#F2B544;font-weight:700">Program-level pattern</div></div>
-<div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:7px">{{ programRec.title }}</div>
-<div style="font-size:13px;line-height:1.55;color:#C7CCC6">{{ programRec.body }}</div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin:11px 0">
-<sc-for list="{{ programRec.lifts }}" as="l" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#C7CCC6">{{ l.t }}</div></sc-for>
+<sc-if value="{{ hasHeadline }}" hint-placeholder-val="{{ true }}">
+<div style="border:1px solid {{ headline.bd }};background:{{ headline.bg }};border-radius:20px;padding:17px;margin-bottom:24px">
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:10px"><i style="font-size:17px;color:{{ headline.ac }}">{{ headline.icon }}</i><div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:{{ headline.ac }};font-weight:700">{{ headline.kind }}</div></div>
+<div style="font-size:16px;font-weight:600;letter-spacing:-.015em;line-height:1.3;margin-bottom:8px">{{ headline.title }}</div>
+<div style="font-size:13.5px;line-height:1.6;color:#C7CCC6">{{ headline.body }}</div>
+<div style="background:#101211;border:1px solid #272C29;border-radius:13px;padding:13px;margin-top:13px">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Do this week</div>
+<div style="font-size:13.5px;font-weight:500;margin-top:5px;line-height:1.5">{{ headline.action }}</div>
 </div>
-<div style="background:#101211;border:1px solid #272C29;border-radius:13px;padding:12px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A928C;font-weight:600">Suggested</div><div style="font-size:13px;font-weight:500;margin-top:4px;line-height:1.5">{{ programRec.action }}</div></div>
+<div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:11px">{{ headline.basis }}</div>
 </div>
 </sc-if>
 
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Fatigue map</div>
+<div style="font-size:11px;color:#5F665F;font-family:'JetBrains Mono',monospace">{{ mapRange }}</div>
+</div>
+<div style="font-size:12px;color:#5F665F;line-height:1.45;margin-bottom:11px">Sets in the last 7 days per muscle, against your own four-week average. Bar colour is effort at matched load.</div>
+
+<sc-if value="{{ hasMap }}" hint-placeholder-val="{{ true }}">
+<div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:6px 14px 12px;margin-bottom:24px">
+<sc-for list="{{ fatigueMap }}" as="m" hint-placeholder-count="6">
+<button onClick="{{ m.pick }}" style="width:100%;padding:11px 0 10px;border-top:{{ m.sep }};display:block">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+<div style="display:flex;align-items:baseline;gap:7px;min-width:0">
+<div style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</div>
+<div style="font-size:10px;color:{{ m.ac }};font-weight:700;letter-spacing:.07em;text-transform:uppercase;flex:none">{{ m.tag }}</div>
+</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#C7CCC6;flex:none">{{ m.sets }}<span style="color:#5F665F;font-size:10.5px"> / {{ m.avg }}</span></div>
+</div>
+<div style="position:relative;height:6px;border-radius:99px;background:#222724;margin-top:8px">
+<div style="position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:{{ m.ac }};width:{{ m.pct }};opacity:{{ m.op }}"></div>
+<div style="position:absolute;top:-3px;bottom:-3px;width:1.5px;background:#8A928C;left:{{ m.base }};transform:translateX(-50%)"></div>
+</div>
+<sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:12px;color:#8A928C;line-height:1.55;margin-top:9px">{{ m.detail }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">
+<sc-for list="{{ m.sources }}" as="s" hint-placeholder-count="3"><div style="font-size:10.5px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#9AA39C">{{ s.t }}</div></sc-for>
+</div>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noMap }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px dashed #272C29;border-radius:18px;padding:26px 18px;text-align:center;margin-bottom:24px">
+<div style="font-size:13px;color:#8A928C;line-height:1.55">Nothing logged this week yet. The map fills in as you train.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasDiagnoses }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Plateau diagnoses</div>
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Stalled lifts</div>
 <button onClick="{{ scan }}" style="font-size:11.5px;color:#A8C9A2;display:flex;align-items:center;gap:5px;font-weight:600"><i style="font-size:15px">{{ scanIcon }}</i>{{ scanLabel }}</button>
 </div>
 <sc-if value="{{ scanMsg }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid #272C29;background:#171A18;border-radius:12px;padding:10px 12px;font-size:12px;color:#9AA39C;margin-bottom:10px">{{ scanMsgText }}</div></sc-if>
@@ -343,26 +382,19 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <div style="font-size:10px;padding:4px 8px;border-radius:7px;background:rgba(242,181,68,.12);color:#F2B544;font-weight:700;letter-spacing:.06em">{{ d.tag }}</div>
 </div>
 <div style="font-size:13px;line-height:1.55;color:#C7CCC6;margin-top:10px">{{ d.body }}</div>
-<div style="display:flex;flex-direction:column;gap:6px;margin-top:11px">
-<sc-for list="{{ d.actions }}" as="a" hint-placeholder-count="2"><div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.45;color:#C7CCC6"><div style="width:5px;height:5px;border-radius:50%;background:#A8C9A2;margin-top:6px;flex:none"></div>{{ a.t }}</div></sc-for>
+<sc-if value="{{ d.hasCause }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:8px;align-items:flex-start;background:#101211;border:1px solid #272C29;border-radius:12px;padding:11px;margin-top:11px">
+<i style="font-size:15px;color:#F2B544;margin-top:1px">arrow_outward</i>
+<div style="font-size:12.5px;line-height:1.55;color:#C7CCC6">{{ d.cause }}</div>
 </div>
-<div style="display:flex;gap:8px;margin-top:13px"><button onClick="{{ d.dismiss }}" style="flex:1;border:1px solid #272C29;border-radius:10px;padding:9px;font-size:12px;color:#8A928C;text-align:center">Not now</button><button onClick="{{ d.accept }}" style="flex:1;background:#1E2220;border:1px solid #313632;border-radius:10px;padding:9px;font-size:12px;font-weight:600;text-align:center">Apply next week</button></div>
-</div>
-</sc-for>
-</div>
-
-<sc-if value="{{ hasPlans }}" hint-placeholder-val="{{ false }}">
-<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:10px">Applied to next session</div>
-<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
-<sc-for list="{{ plansList }}" as="p" hint-placeholder-count="1">
-<div style="border:1px solid rgba(168,201,162,.28);background:rgba(168,201,162,.05);border-radius:16px;padding:13px;display:flex;gap:10px;align-items:flex-start">
-<i style="font-size:17px;color:#A8C9A2;margin-top:1px">event_upcoming</i>
-<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">{{ p.name }}</div><div style="font-size:11.5px;color:#8A928C;line-height:1.5;margin-top:3px">{{ p.text }}</div></div>
-<button onClick="{{ p.undo }}" style="font-size:11.5px;color:#8A928C;flex:none;padding:2px 0 0 4px">Undo</button>
+</sc-if>
+<div style="font-size:12.5px;line-height:1.5;color:#C7CCC6;margin-top:11px;display:flex;gap:8px;align-items:flex-start"><div style="width:5px;height:5px;border-radius:50%;background:#A8C9A2;margin-top:6px;flex:none"></div>{{ d.action }}</div>
+<button onClick="{{ d.dismiss }}" style="font-size:11.5px;color:#8A928C;margin-top:12px">Dismiss</button>
 </div>
 </sc-for>
 </div>
 </sc-if>
+
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
 <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600">Strength goals</div>
 <button onClick="{{ openGoal }}" style="font-size:11.5px;color:#A8C9A2;font-weight:600">+ Add</button>
@@ -394,15 +426,23 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 </sc-for>
 </div>
 
-<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:10px">Weekly reports</div>
+<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A928C;font-weight:600;margin-bottom:4px">What changed</div>
+<div style="font-size:12px;color:#5F665F;line-height:1.45;margin-bottom:11px">Last 7 days against the 7 before. Only things that moved.</div>
 <div style="display:flex;flex-direction:column;gap:10px">
-<sc-for list="{{ reports }}" as="r" hint-placeholder-count="2">
+<sc-for list="{{ changelog }}" as="r" hint-placeholder-count="2">
 <div style="background:#171A18;border:1px solid #272C29;border-radius:18px;padding:15px">
-<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#8A928C"><span style="font-family:'JetBrains Mono',monospace">{{ r.range }}</span><span>{{ r.meta }}</span></div>
-<div style="font-size:13px;line-height:1.6;margin-top:9px;color:#C7CCC6">{{ r.recap }}</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px">
-<sc-for list="{{ r.stats }}" as="s" hint-placeholder-count="4"><div style="border:1px solid #272C29;border-radius:11px;padding:8px 10px"><div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#8A928C">{{ s.k }}</div><div style="font-size:13px;font-weight:600;margin-top:2px;font-family:'JetBrains Mono',monospace">{{ s.v }}</div></div></sc-for>
+<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#8A928C;margin-bottom:11px"><span style="font-family:'JetBrains Mono',monospace">{{ r.range }}</span><span>{{ r.meta }}</span></div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ r.changes }}" as="c" hint-placeholder-count="3">
+<div style="display:flex;gap:9px;align-items:flex-start">
+<i style="font-size:15px;color:{{ c.ac }};margin-top:1px">{{ c.icon }}</i>
+<div style="font-size:12.5px;line-height:1.55;color:#C7CCC6;min-width:0"><span style="color:#ECEFEA;font-weight:500">{{ c.subject }}</span> {{ c.t }}</div>
 </div>
+</sc-for>
+</div>
+<sc-if value="{{ r.quiet }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:12.5px;color:#8A928C;line-height:1.55">Nothing moved much. Same volume, same effort, same readiness as the 7 days before.</div>
+</sc-if>
 </div>
 </sc-for>
 </div>
@@ -573,6 +613,14 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px">
 <sc-for list="{{ res.chips }}" as="c" hint-placeholder-count="3"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#C7CCC6">{{ c.t }}</div></sc-for>
 </div>
+<sc-if value="{{ res.hasActions }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:11px">
+<div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:6px">Joint actions</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px">
+<sc-for list="{{ res.actions }}" as="a" hint-placeholder-count="2"><div style="font-size:11px;padding:4px 8px;border-radius:7px;background:#1E2220;color:#9AA39C">{{ a.t }}</div></sc-for>
+</div>
+</div>
+</sc-if>
 <sc-if value="{{ res.hasMuscles }}" hint-placeholder-val="{{ false }}">
 <div style="margin-top:11px">
 <div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#5F665F;font-weight:600;margin-bottom:6px">Trains</div>
@@ -604,7 +652,7 @@ i{font-family:'Material Symbols Rounded';font-style:normal;font-size:20px;line-h
 <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="5">
 <button onClick="{{ s.pick }}" style="width:100%;background:#171A18;border:1px solid #272C29;border-radius:14px;padding:12px 13px;display:flex;align-items:center;gap:11px">
 <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">{{ s.name }}</div><div style="font-size:11px;color:#8A928C;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.mods }}</div></div>
-<div style="font-size:10.5px;color:#5F665F;font-family:'JetBrains Mono',monospace;flex:none">{{ s.meta }}</div>
+<div style="font-size:10.5px;color:#7F8A80;flex:none;text-align:right;max-width:104px;line-height:1.35">{{ s.meta }}</div>
 </button>
 </sc-for>
 </div>
@@ -877,6 +925,39 @@ class Component extends DCLogic {
 
   // Primary + secondary muscles per movement. In the real app the model returns these per
   // variant; here they are keyed off the base so the prototype can show the chips.
+  // Joint actions — anatomical, and plural, because a press works the shoulder AND the
+  // elbow. "Vertical push" is a trainer's category, not what the joints do.
+  ACTION_MAP = {
+    'bench press': ['shoulder horizontal adduction', 'elbow extension'],
+    'incline press': ['shoulder horizontal adduction', 'shoulder flexion', 'elbow extension'],
+    'chest press': ['shoulder horizontal adduction', 'elbow extension'],
+    'chest fly': ['shoulder horizontal adduction'],
+    'dip': ['shoulder extension', 'elbow extension'],
+    'overhead press': ['shoulder abduction', 'elbow extension'],
+    'jm press': ['elbow extension', 'shoulder horizontal adduction'],
+    'lateral raise': ['shoulder abduction'],
+    'rear delt fly': ['shoulder horizontal abduction'],
+    'face pull': ['shoulder horizontal abduction', 'shoulder external rotation'],
+    'tricep extension': ['elbow extension'],
+    'pushdown': ['elbow extension'],
+    'lat pulldown': ['shoulder adduction', 'elbow flexion', 'scapular depression'],
+    'pull-up': ['shoulder adduction', 'elbow flexion', 'scapular depression'],
+    'row': ['shoulder horizontal abduction', 'elbow flexion', 'scapular retraction'],
+    'shrug': ['scapular elevation'],
+    'curl': ['elbow flexion'],
+    'squat': ['knee extension', 'hip extension'],
+    'leg press': ['knee extension', 'hip extension'],
+    'leg extension': ['knee extension'],
+    'romanian deadlift': ['hip extension'],
+    'stiff leg deadlift': ['hip extension', 'spinal extension'],
+    'deadlift': ['hip extension', 'knee extension'],
+    'hamstring curl': ['knee flexion'],
+    'hip thrust': ['hip extension'],
+    'lunge': ['knee extension', 'hip extension'],
+    'calf raise': ['plantarflexion'],
+    'jefferson curl': ['spinal flexion']
+  };
+
   MUSCLE_MAP = {
     'bench press': [['pectorals', 1], ['triceps', 0], ['front delts', 0]],
     'incline press': [['upper chest', 1], ['front delts', 0], ['triceps', 0]],
@@ -913,14 +994,15 @@ class Component extends DCLogic {
   AI_SIM = [
     { m: ['jm press'], base: 'jm press', mods: ['barbell'], p: 'arms',
       note: 'A hybrid of a close-grip bench and a skullcrusher: the elbows travel forward, so the triceps take load through a longer range than either movement alone. Its own lift, not a skullcrusher variation.' },
-    { m: ['zercher'], base: 'squat', mods: ['barbell', 'zercher'], p: 'legs',
+    { m: ['zercher'], base: 'squat', mods: ['barbell', 'zercher'], p: 'legs', actions: ['knee extension', 'hip extension', 'spinal extension'],
       muscles: [['quads', 1], ['glutes', 1], ['upper back', 0], ['abs', 0]],
       note: 'The front-rack elbow position keeps the torso upright and shifts load onto the quads and upper back. Expect well under your back squat at the same effort.' },
     { m: ['zottman', 'zotman'], base: 'curl', mods: ['dumbbell', 'zottman'], p: 'arms',
       muscles: [['biceps', 1], ['forearms', 1], ['brachialis', 0]],
       note: 'The wrist rotates at the top so the eccentric is performed pronated. Forearm strength, not biceps, sets the ceiling — the load runs lighter than a standard curl.' },
-    { m: ['sldl', 'stiff leg deadlift', 'straight leg deadlift'], base: 'romanian deadlift', mods: ['barbell', 'straight leg'], p: 'legs',
-      note: 'Less knee bend than an RDL, so the hamstrings work at a longer length and the lower back takes more. Runs lighter than a conventional deadlift.' },
+    { m: ['sldl', 'stiff leg deadlift', 'straight leg deadlift'], base: 'stiff leg deadlift', mods: ['barbell'], p: 'legs',
+      muscles: [['hamstrings', 1], ['lower back', 1], ['glutes', 0]],
+      note: 'Its own lift rather than an RDL variation: the knees stay near-locked, the bar drifts further from the hips, and the lower back takes a much larger share. Loads are not comparable to an RDL, so it gets a separate trend line.' },
     { m: ['seal row'], base: 'row', mods: ['chest supported', 'barbell', 'lying'], p: 'back',
       note: 'Lying face-down removes the torso and lower back from the equation entirely — pure upper-back stimulus, and usually a higher usable load than a bent-over row.' },
     { m: ['pendlay row'], base: 'row', mods: ['barbell', 'bent over', 'floor'], p: 'back',
@@ -955,6 +1037,7 @@ class Component extends DCLogic {
   round5(n) { return Math.round(n * 2) / 2; }
   title(s) { return String(s || '').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
   plural(n) { return n === 1 ? 'logged once' : n === 2 ? 'logged twice' : 'logged ' + n + ' times'; }
+
   ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   e1rm(w, r) { return (w || 0) * (1 + (r || 0) / 30); }
 
@@ -985,13 +1068,13 @@ class Component extends DCLogic {
       ['bench', 'bench press', ['feet up', 'narrow grip'], 'pectorals', 'chest', 185, 8, 1, 0],
       ['incdb', 'incline press', ['dumbbell'], 'pectorals', 'chest', 65, 10, 0, 2.5],
       ['fly', 'chest fly', ['cable', 'high to low'], 'pectorals', 'chest', 30, 12, 0, 2.5],
-      ['cuffext', 'tricep extension', ['single arm', 'cable', 'cuff'], 'triceps', 'arms', 25, 12, 0, 2.5],
+      ['cuffext', 'tricep extension', ['single arm', 'cable', 'cuff'], 'triceps', 'arms', 25, 12, 1, 0],
       ['lat', 'lateral raise', ['dumbbell'], 'delts', 'arms', 20, 15, 0, 2.5],
       ['pull', 'lat pulldown', ['neutral grip'], 'lats', 'back', 150, 10, 1, 0],
       ['row', 'row', ['chest supported', 'machine'], 'upper back', 'back', 140, 10, 0, 5],
       ['fp', 'face pull', ['rope'], 'upper back', 'back', 40, 15, 0, 2.5],
       ['curl', 'curl', ['ez bar'], 'biceps', 'arms', 65, 10, 0, 2.5],
-      ['pd', 'pushdown', ['rope'], 'triceps', 'arms', 60, 12, 0, 5],
+      ['pd', 'pushdown', ['rope'], 'triceps', 'arms', 60, 12, 1, 0],
       ['sq', 'squat', ['barbell'], 'quads', 'legs', 245, 5, 1, 0],
       ['lp', 'leg press', ['machine'], 'quads', 'legs', 360, 10, 0, 10],
       ['rdl', 'romanian deadlift', ['barbell'], 'hamstrings', 'legs', 205, 8, 0, 5],
@@ -999,15 +1082,16 @@ class Component extends DCLogic {
       ['calf', 'calf raise', ['standing', 'machine'], 'calves', 'legs', 180, 15, 0, 10]
     ];
     const meta = {};
-    rows.forEach(r => { meta[r[0]] = { start: r[5], reps: r[6], flat: r[7], inc: r[8] }; S.variants.push({ id: r[0], base: r[1], mods: r[2], m: r[3], p: r[4], uses: 0, created: Date.now() }); });
-    const split = { 'Push A': ['bench', 'incdb', 'fly', 'cuffext', 'lat'], 'Pull A': ['pull', 'row', 'fp', 'curl', 'pd'], 'Legs A': ['sq', 'lp', 'rdl', 'hc', 'calf'] };
+    rows.forEach(r => { meta[r[0]] = { start: r[5], reps: r[6], flat: r[7], inc: r[8] }; S.variants.push({ id: r[0], base: r[1], mods: r[2], m: r[3], p: r[4], muscles: this.musclesFor(r[1]), uses: 0, created: Date.now() }); });
+    const split = { 'Push A': ['bench', 'incdb', 'fly', 'cuffext', 'pd'], 'Pull A': ['pull', 'row', 'fp', 'curl', 'lat'], 'Legs A': ['sq', 'lp', 'rdl', 'hc', 'calf'] };
     const names = Object.keys(split);
     const today = new Date(); today.setHours(18, 30, 0, 0);
-    const sun = new Date(today); sun.setDate(today.getDate() - today.getDay()); sun.setHours(18, 30, 0, 0);
 
     for (let w = 0; w < 8; w++) {
       names.forEach((nm, si) => {
-        const i = w * 3 + si;
+        // (2 - si) puts Push A most recent, so the current week always contains the
+        // triceps-heavy session the fatigue map is meant to demonstrate.
+        const i = w * 3 + (2 - si);
         const d = new Date(today); d.setDate(today.getDate() - Math.round((23 - i) * 2.35));
         const sid = 's' + w + si;
         const ids = split[nm];
@@ -1016,9 +1100,12 @@ class Component extends DCLogic {
           const M = meta[vid];
           const lb = M.flat ? M.start : M.start + M.inc * Math.floor(w / 2);
           const baseRir = M.flat ? this.clamp(3 - w * 0.28, 0.5, 3.5) : this.clamp(2.5 + (R() - 0.5), 1, 3.5);
-          for (let n = 0; n < 3; n++) {
+          // Real training is not uniform — without drift every muscle sits at exactly its
+          // own baseline and the map has nothing to say.
+          const nSets = 3 + (R() < 0.22 ? 1 : 0);
+          for (let n = 0; n < nSets; n++) {
             const rir = this.round5(this.clamp(baseRir - n * 0.4 + (R() - 0.5) * 0.3, 0, 5));
-            S.sets.push({ id: this.uid(), sessionId: sid, variantId: vid, weight: this.toKg(lb), reps: n === 2 ? M.reps - 1 : M.reps, rir: rir, rpe: this.round5(10 - rir), n: n + 1, ts: new Date(d.getTime() + n * 180000).toISOString() });
+            S.sets.push({ id: this.uid(), sessionId: sid, variantId: vid, weight: this.toKg(lb), reps: n >= 2 ? M.reps - 1 : M.reps, rir: rir, rpe: this.round5(10 - rir), n: n + 1, ts: new Date(d.getTime() + n * 180000).toISOString() });
           }
         });
         const energy = this.clamp(8 - w * 0.2 + (R() - 0.5), 3, 10);
@@ -1047,10 +1134,9 @@ class Component extends DCLogic {
     S.templates = names.map((nm, i) => ({ id: 't' + i, name: nm, variantIds: split[nm].slice() }));
     S.goals = [{ id: 'g1', variantId: 'bench', target: 225, reps: 5, status: 'active' }, { id: 'g2', variantId: 'sq', target: 315, reps: 3, status: 'active' }];
     S.recs = [
-      { id: 'r1', kind: 'program', status: 'open' },
       { id: 'r2', kind: 'plateau', variantId: 'bench', status: 'open' },
-      { id: 'r3', kind: 'plateau', variantId: 'sq', status: 'open' },
-      { id: 'r4', kind: 'plateau', variantId: 'pull', status: 'open' }
+      { id: 'r3', kind: 'plateau', variantId: 'cuffext', status: 'open' },
+      { id: 'r4', kind: 'plateau', variantId: 'pd', status: 'open' }
     ];
     return S;
   }
@@ -1070,6 +1156,92 @@ class Component extends DCLogic {
     return { base: base, mods: mods };
   }
 
+  /**
+   * What to suggest next, mid-workout.
+   *
+   * An all-time "most logged" leaderboard is the wrong answer at a rack: it puts the same
+   * five lifts on top whatever you are actually doing today. This predicts instead, from
+   * three signals in priority order:
+   *
+   *   1. the rest of the template, when the session came from one
+   *   2. co-occurrence — what usually appears in sessions containing what you have already
+   *      logged, weighted by how near it normally sits to the slot you are filling, and by
+   *      recency so an abandoned lift from last year stops surfacing
+   *   3. what usually opens a session like this, for the first slot
+   *
+   * Each suggestion carries its reason, because "usually after Bench Press" is the thing
+   * that makes it trustworthy. A bare count is not.
+   */
+  suggestNext(target) {
+    const S = this.state.store;
+    const sess = target === 'tpl'
+      ? (S.templates || []).find(t => t.id === this.state.tplId)
+      : this.curSession();
+    const current = (sess && (sess.exerciseIds || sess.variantIds)) || [];
+    const slot = current.length;
+    const done = new Set(current);
+    const past = (S.sessions || []).filter(s => s.status === 'completed');
+    const out = [];
+    const seen = new Set();
+    const push = (id, reason) => {
+      if (done.has(id) || seen.has(id)) return;
+      const v = this.vById(id); if (!v) return;
+      seen.add(id); out.push({ v: v, reason: reason });
+    };
+
+    // 1. template remainder — the least speculative answer available
+    const tpl = sess && sess.templateId ? (S.templates || []).find(t => t.id === sess.templateId) : null;
+    if (tpl) (tpl.variantIds || []).forEach(id => push(id, 'next in ' + tpl.name));
+
+    // 2. co-occurrence
+    const score = {}, why = {}, shared = {};
+    past.forEach(p => {
+      const ids = p.exerciseIds || [];
+      const overlap = current.filter(id => ids.indexOf(id) >= 0).length;
+      const weeksAgo = (Date.now() - new Date(p.date)) / 6048e5;
+      const recency = Math.max(0.15, 1 - weeksAgo / 14);
+      ids.forEach((id, pos) => {
+        if (done.has(id)) return;
+        // near the slot being filled counts for more than merely co-occurring
+        const near = 1 / (1 + Math.abs(pos - slot));
+        score[id] = (score[id] || 0) + (overlap * 2 + 0.25) * near * recency;
+        shared[id] = Math.max(shared[id] || 0, overlap);
+        if (!why[id]) {
+          const prev = pos > 0 ? ids[pos - 1] : null;
+          if (prev && done.has(prev)) why[id] = 'usually after ' + this.vName(this.vById(prev));
+          else if (overlap > 0) why[id] = 'usually ' + this.ordinal(pos + 1);
+        }
+      });
+    });
+    // Only claim session membership where the history actually shows it. A leg press has
+    // zero overlap with a push session, so "often in this session" would be the app
+    // contradicting its own data — worse than the bare count this replaced. Those fall
+    // through to step 3, which states something true instead.
+    Object.keys(score)
+      .filter(id => shared[id] > 0 || slot === 0)
+      .sort((a, b) => score[b] - score[a])
+      .forEach(id => push(id, why[id] || (slot === 0 ? 'often trained' : 'often in this session')));
+
+    // 3. anything left, most recent first — never a dead list
+    const lastSeen = {};
+    (S.sets || []).forEach(s => {
+      const p = past.find(x => x.id === s.sessionId); if (!p) return;
+      const t = new Date(p.date).getTime();
+      if (!lastSeen[s.variantId] || t > lastSeen[s.variantId]) lastSeen[s.variantId] = t;
+    });
+    (S.variants || []).slice()
+      .sort((a, b) => (lastSeen[b.id] || 0) - (lastSeen[a.id] || 0))
+      .forEach(v => push(v.id, lastSeen[v.id] ? 'last trained ' + this.ago(lastSeen[v.id]) : 'not logged yet'));
+
+    return out;
+  }
+
+  ordinal(n) { return n + (['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4)] || 'th'); }
+  ago(ts) {
+    const d = Math.round((Date.now() - ts) / 864e5);
+    return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : Math.round(d / 7) + ' weeks ago';
+  }
+
   musclesFor(baseKey, override) {
     const rows = override || this.MUSCLE_MAP[baseKey] || [];
     return rows.map(r => ({ name: r[0], role: r[1] ? 'primary' : 'secondary' }));
@@ -1080,8 +1252,10 @@ class Component extends DCLogic {
   plausible(text) {
     const t = this.norm(text).trim();
     if (t.length < 3) return { ok: false, reason: 'A bit more detail — name the movement.' };
-    if (!/[aeiou]/.test(t)) return { ok: false, reason: 'That does not look like an exercise.' };
-    if (/[bcdfghjklmnpqrstvwxz]{6,}/.test(t)) return { ok: false, reason: 'That does not look like an exercise.' };
+    // No vowel rule: lifters type SLDL, RDL, OHP, BSS. Rejecting those is exactly the
+    // hand-written-rule mistake the AI-first rewrite exists to remove. A 5+ consonant run
+    // still catches real keyboard mashing.
+    if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(t)) return { ok: false, reason: 'That does not look like an exercise.' };
     if (/^(.)\1+$/.test(t.replace(/\s/g, ''))) return { ok: false, reason: 'That does not look like an exercise.' };
     const food = /\b(pizza|parmesan|chicken|pasta|burrito|sandwich|coffee|dinner|lunch|breakfast|taco|salad)\b/;
     if (food.test(t)) return { ok: false, reason: 'That is not an exercise. Describe the movement — "single arm cuff tricep extension".' };
@@ -1107,6 +1281,7 @@ class Component extends DCLogic {
     if (sim) {
       base = sim.base; mods = sim.mods.slice(); note = sim.note; part = sim.p;
       muscles = sim.muscles || null; conf = sim.conf || 'high';
+      if (sim.actions) this.ACTION_MAP[base] = sim.actions;
     } else {
       const p = this.parse(text);
       if (!p.base) return { status: 'unknown', raw: text };
@@ -1137,8 +1312,8 @@ class Component extends DCLogic {
 
     return {
       status: status, ok: true, base: { k: base, p: part, m: (this.musclesFor(base, muscles)[0] || {}).name },
-      mods: keys, muscles: this.musclesFor(base, muscles), note: note, conf: conf,
-      match: best, score: bestScore, raw: text
+      mods: keys, muscles: this.musclesFor(base, muscles), actions: this.ACTION_MAP[base] || [],
+      note: note, conf: conf, match: best, score: bestScore, raw: text
     };
   }
 
@@ -1469,6 +1644,7 @@ class Component extends DCLogic {
             name: this.title(r.base.k),
             chips: r.mods.map(m => ({ t: m })),
             muscles: (r.muscles || []).map(mChip), hasMuscles: !!(r.muscles || []).length,
+            actions: (r.actions || []).map(a => ({ t: a })), hasActions: !!(r.actions || []).length,
             lowConf: r.conf === 'low',
             trend: matched
               ? 'Continues the trend line you already have — ' + this.plural(mv.uses || pts.length) + (lastSet ? ', last at ' + this.dw(lastSet.weight) + ' ' + u + ' × ' + lastSet.reps : '') + '.'
@@ -1483,13 +1659,16 @@ class Component extends DCLogic {
         }
       }
       const q = this.norm(st.q || '');
-      const all = (S.variants || []).slice().sort((a, b) => (b.uses || 0) - (a.uses || 0));
-      const filtered = (st.q || '').trim() ? all.filter(v => { const hay = this.norm(v.base + ' ' + (v.mods || []).join(' ') + ' ' + v.m); return q.trim().split(' ').some(w => w.length > 1 && hay.indexOf(w) >= 0); }) : all;
+      const typing = !!(st.q || '').trim();
+      const ranked = this.suggestNext(target);
+      const filtered = typing
+        ? ranked.filter(r => { const hay = this.norm(r.v.base + ' ' + (r.v.mods || []).join(' ') + ' ' + r.v.m); return q.trim().split(' ').some(w => w.length > 1 && hay.indexOf(w) >= 0); })
+        : ranked;
       V.showSuggest = !st.resolving && filtered.length > 0;
-      V.suggestTitle = (st.q || '').trim() ? 'From your history' : 'Most logged';
-      V.suggestions = filtered.slice(0, 8).map(v => ({
-        name: this.vName(v), mods: this.vMods(v), meta: (v.uses || 0) + '\u00d7',
-        pick: () => this.addVariantFromResolution({ ok: true, status: 'match', match: v, base: { k: v.base, m: v.m, p: v.p }, mods: v.mods }, target)
+      V.suggestTitle = typing ? 'From your history' : 'Up next';
+      V.suggestions = filtered.slice(0, 6).map(r => ({
+        name: this.vName(r.v), mods: this.vMods(r.v), meta: r.reason,
+        pick: () => this.addVariantFromResolution({ ok: true, status: 'match', match: r.v, base: { k: r.v.base, m: r.v.m, p: r.v.p }, mods: r.v.mods }, target)
       }));
     }
 
@@ -1645,13 +1824,155 @@ class Component extends DCLogic {
     // ---------- COACH ----------
     if (V.isCoach) {
       const stalled = (S.variants || []).map(v => ({ v: v, pts: this.matchedPoints(v.id) })).filter(x => x.pts.length >= 3 && x.pts[x.pts.length - 1].rir - x.pts[0].rir <= -0.8);
-      V.hasProgramRec = stalled.length >= 2 && (S.recs || []).some(r => r.kind === 'program' && r.status === 'open');
-      V.programRec = {
-        title: stalled.length + ' lifts stalled inside the same two-week window',
-        body: 'Per-exercise diagnosis would file these as ' + stalled.length + ' unrelated plateaus. They are not: effort climbed at matched load across different movement patterns while readiness fell. That points at recovery, not at any one lift.',
-        lifts: stalled.map(x => ({ t: this.vName(x.v) })),
-        action: 'Take a deload week — same movements, 60% of your usual sets, top sets at RIR 4 — then re-test the three lifts above before changing programming.'
+      const stalledIds = new Set(stalled.map(x => x.v.id));
+
+      /**
+       * Sets per muscle. A set counts fully for every primary muscle and half for each
+       * secondary — the convention most volume literature uses, and the reason muscle
+       * tagging exists: bench, dips and pushdowns all bill the triceps, which no
+       * per-exercise view can see.
+       */
+      const muscleSets = sets => {
+        const out = {};
+        sets.forEach(s => {
+          const v = this.vById(s.variantId); if (!v) return;
+          const ms = v.muscles && v.muscles.length ? v.muscles : (v.m ? [{ name: v.m, role: 'primary' }] : []);
+          ms.forEach(m => { out[m.name] = (out[m.name] || 0) + (m.role === 'primary' ? 1 : 0.5); });
+        });
+        Object.keys(out).forEach(k => out[k] = Math.round(out[k] * 2) / 2);
+        return out;
       };
+      const setsBetween = (from, to) => {
+        const ids = new Set((S.sessions || []).filter(x => { const d = new Date(x.date); return d >= from && d < to; }).map(x => x.id));
+        return (S.sets || []).filter(x => ids.has(x.sessionId));
+      };
+
+      // Rolling 7 days rather than the calendar week. Fatigue does not reset on Sunday,
+      // and a calendar window shows an empty map every Monday morning.
+      const wkEnd = new Date();
+      const wkStart = new Date(wkEnd); wkStart.setDate(wkEnd.getDate() - 7);
+      const baseFrom = new Date(wkStart); baseFrom.setDate(wkStart.getDate() - 28);
+      const curSets = setsBetween(wkStart, wkEnd);
+      const trainedNow = new Set(curSets.map(s => s.variantId));
+      const thisWeek = muscleSets(curSets);
+      const priorRaw = muscleSets(setsBetween(baseFrom, wkStart));
+      const baseline = {}; Object.keys(priorRaw).forEach(k => baseline[k] = Math.round(priorRaw[k] / 4 * 10) / 10);
+
+      // which muscles are being trained by a lift whose effort is climbing
+      const hotMuscles = {};
+      stalled.forEach(x => {
+        const ms = x.v.muscles && x.v.muscles.length ? x.v.muscles : (x.v.m ? [{ name: x.v.m, role: 'primary' }] : []);
+        ms.filter(m => m.role === 'primary').forEach(m => { (hotMuscles[m.name] = hotMuscles[m.name] || []).push(this.vName(x.v)); });
+      });
+
+      const names = [...new Set(Object.keys(thisWeek).concat(Object.keys(baseline)))];
+      // Bars are scaled to the busiest muscle, so length reads as volume and stays
+      // informative even when nothing deviates from baseline. Deviation is carried by the
+      // tick and the colour, not the length.
+      // Peak includes baselines as well as current sets, so a tick can never exceed the
+      // track and get clipped at the far edge.
+      const peak = Math.max(1, ...names.map(n => Math.max(thisWeek[n] || 0, baseline[n] || 0)));
+      const rows = names.map(name => {
+        const now = thisWeek[name] || 0, avg = baseline[name] || 0;
+        const ratio = avg > 0 ? now / avg : (now > 0 ? 1 : 0);
+        const climbing = !!hotMuscles[name];
+        let tag = 'steady', ac = '#4C8E96', op = 0.85;
+        if (climbing && ratio >= 1.15) { tag = 'overreaching'; ac = '#F2705C'; op = 1; }
+        else if (climbing) { tag = 'effort up'; ac = '#F2B544'; op = 1; }
+        else if (ratio >= 1.35) { tag = 'ramping'; ac = '#F2B544'; op = 0.9; }
+        else if (now === 0 && avg >= 3) { tag = 'untrained'; ac = '#5F665F'; op = 0.5; }
+        else if (ratio < 0.6) { tag = 'backed off'; ac = '#5F665F'; op = 0.6; }
+        const sources = (S.variants || []).filter(v => {
+          if (!trainedNow.has(v.id)) return false;
+          const ms = v.muscles && v.muscles.length ? v.muscles : (v.m ? [{ name: v.m }] : []);
+          return ms.some(m => m.name === name);
+        }).slice(0, 5);
+        return {
+          name: this.title(name), key: name, sets: now, avg: avg || '—',
+          tag: tag, ac: ac, op: op, ratio: ratio, climbing: climbing,
+          pct: Math.round(now / peak * 100) + '%',
+          // Capped at 97 so the centred tick always sits fully inside the track — at a
+          // true 100% half of it would fall past the right edge.
+          base: avg > 0 ? Math.min(97, Math.round(avg / peak * 100)) + '%' : '0%',
+          detail: climbing
+            ? 'Effort is climbing at matched load on ' + hotMuscles[name].join(' and ') + '. With ' + now + ' sets in the last 7 days against a ' + (avg || 0) + '-set average, ' + (ratio >= 1.15 ? 'the load here is the likely cause.' : 'the volume is not elevated — more likely recovery than local overload.')
+            : now === 0 && avg >= 3
+              ? 'Nothing in the last 7 days, against a ' + avg + '-set average. Not a problem yet — worth noticing if it repeats.'
+              : now + ' sets in the last 7 days against a ' + (avg || 0) + '-set four-week average.',
+          sources: sources.map(v => ({ t: this.vName(v) })),
+          open: st.openMuscle === name,
+          pick: () => this.setState({ openMuscle: st.openMuscle === name ? null : name })
+        };
+      }).filter(r => r.sets > 0 || r.tag === 'untrained')
+        .sort((a, b) => (b.climbing - a.climbing) || (b.ratio - a.ratio));
+
+      V.fatigueMap = rows;
+      V.hasMap = rows.length > 0; V.noMap = rows.length === 0;
+      V.mapRange = wkStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + new Date(wkEnd.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      V.coachSub = 'Every number here comes from sets you logged. Nothing is estimated.';
+
+      // ---- the single headline ----
+      // Muscle-level cause beats a per-exercise observation, so it is checked first.
+      // Rank by how many stalling lifts share the muscle, not by set count. Three lifts
+      // converging on one muscle is the finding; a high-volume muscle with one stalled
+      // lift is just a busy muscle.
+      const candidates = rows.filter(r => (hotMuscles[r.key] || []).length >= 2)
+        .sort((a, b) => (hotMuscles[b.key].length - hotMuscles[a.key].length) || (b.sets - a.sets));
+      // Only call it a concentration when volume is ACTUALLY elevated. Shared stalls on a
+      // muscle doing LESS work than usual is the opposite finding — telling someone to cut
+      // volume that is already down would be actively wrong.
+      const shared = candidates.filter(r => r.ratio >= 1.15)[0] || null;
+      const sharedLow = shared ? null : (candidates[0] || null);
+      const worst = shared || sharedLow || rows.filter(r => r.climbing).sort((a, b) => b.sets - a.sets)[0];
+      const andList = a => a.length < 2 ? (a[0] || '') : a.length === 2 ? a[0] + ' and ' + a[1] : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+      const readyRows = (S.readiness || []).slice(-8);
+      let readyTrend = null;
+      if (readyRows.length >= 4) {
+        const h = Math.floor(readyRows.length / 2);
+        const mean = a => a.reduce((x, r) => x + r.score, 0) / a.length;
+        readyTrend = Math.round((mean(readyRows.slice(h)) - mean(readyRows.slice(0, h))) * 10) / 10;
+      }
+      V.hasHeadline = !!worst || stalled.length >= 2;
+      if (shared) {
+        const lifts = hotMuscles[shared.key];
+        V.headline = {
+          bd: 'rgba(242,112,92,.3)', bg: 'rgba(242,112,92,.05)', ac: '#F2705C', icon: 'target', kind: 'Fatigue concentration',
+          title: 'Your ' + shared.name.toLowerCase() + ' are the bottleneck',
+          body: andList(lifts) + ' are ' + (lifts.length === 2 ? 'both' : 'all') + ' stalling, and they share one muscle. Your ' + shared.name.toLowerCase() + ' took ' + shared.sets + ' sets in the last 7 days against a ' + (shared.avg === '—' ? 0 : shared.avg) + '-set average. Deloading each lift separately would miss the cause.',
+          action: 'Cut ' + shared.name.toLowerCase() + ' volume by about a third for one week — drop the isolation work, keep the compounds — then re-test.',
+          basis: 'Based on ' + shared.sets + ' sets across ' + (shared.sources.length || 1) + ' movement' + (shared.sources.length === 1 ? '' : 's') + (readyTrend != null && readyTrend < 0 ? ', with readiness down ' + Math.abs(readyTrend) + ' over the same window.' : '.')
+        };
+      } else if (sharedLow) {
+        const lifts = hotMuscles[sharedLow.key];
+        // Three bands, because the copy has to match the direction of the numbers printed
+        // beside it: below 0.9 is genuinely less work, 0.9-1.15 is flat, and 1.15+ was
+        // already caught above as a concentration.
+        const less = sharedLow.ratio < 0.9;
+        const avgTxt = (sharedLow.avg === '—' ? 0 : sharedLow.avg);
+        V.headline = {
+          bd: 'rgba(242,181,68,.32)', bg: 'rgba(242,181,68,.06)', ac: '#F2B544', icon: 'battery_alert', kind: 'Recovery, not volume',
+          title: sharedLow.name + (less ? ' effort is climbing on less work' : ' effort is climbing on the same work'),
+          body: andList(lifts) + ' are ' + (lifts.length === 2 ? 'both' : 'all') + ' costing more at the same load, but your ' + sharedLow.name.toLowerCase() + (less ? ' only took ' : ' took ') + sharedLow.sets + ' sets in the last 7 days against a ' + avgTxt + '-set average — ' + (less ? 'less than usual' : 'no more than usual') + '. More effort without more volume is not local overload; it points at recovery.',
+          action: 'Leave the programming alone and look at sleep and food first. Re-test these lifts after a week of normal rest.',
+          basis: readyTrend != null ? 'Readiness has moved ' + (readyTrend < 0 ? 'down ' : 'up ') + Math.abs(readyTrend) + ' over the same window.' : 'Based on effort at matched load across ' + lifts.length + ' lifts.'
+        };
+      } else if (stalled.length >= 2) {
+        V.headline = {
+          bd: 'rgba(242,181,68,.32)', bg: 'rgba(242,181,68,.06)', ac: '#F2B544', icon: 'hub', kind: 'Program-level pattern',
+          title: stalled.length + ' lifts stalled in the same two-week window',
+          body: 'Effort climbed at matched load across different movement patterns' + (readyTrend != null && readyTrend < 0 ? ' while readiness fell ' + Math.abs(readyTrend) + ' points' : '') + '. They do not share a muscle, so this points at recovery rather than any one lift.',
+          action: 'Take a deload week — same movements, 60% of your usual sets, top sets at RIR 4 — then re-test before changing programming.',
+          basis: 'Based on ' + stalled.map(x => this.vName(x.v)).join(', ') + '.'
+        };
+      } else if (worst) {
+        V.headline = {
+          bd: 'rgba(242,181,68,.32)', bg: 'rgba(242,181,68,.06)', ac: '#F2B544', icon: 'monitoring', kind: 'Watch',
+          title: this.vName(stalled[0] ? stalled[0].v : {}) + ' is costing more than it did',
+          body: 'Same load, less left in the tank. Your ' + worst.name.toLowerCase() + ' are at ' + worst.sets + ' sets in the last 7 days against a ' + (worst.avg === '—' ? 0 : worst.avg) + '-set average, so this reads as accumulated load rather than a strength ceiling.',
+          action: 'Hold the weight and cut one set from this lift next session. If RIR recovers, it was fatigue.',
+          basis: 'One lift affected — not yet a program-wide pattern.'
+        };
+      }
       V.scanning = !!st.scanning;
       V.scanIcon = st.scanning ? 'progress_activity' : 'radar';
       V.scanLabel = st.scanning ? 'Scanning…' : 'Scan';
@@ -1664,29 +1985,26 @@ class Component extends DCLogic {
         const sets = (S.sets || []).filter(s => s.variantId === r.variantId);
         const load = sets.length ? this.dw(sets[sets.length - 1].weight) : 0;
         const drop = first && last ? Math.round((first.rir - last.rir) * 10) / 10 : 0;
+        // Name the shared muscle when another stalling lift trains it — that is the
+        // difference between an observation and a diagnosis.
+        const prim = (v.muscles || []).filter(m => m.role === 'primary').map(m => m.name);
+        const sharedMuscle = prim.filter(m => (hotMuscles[m] || []).length >= 2)[0];
+        const others = sharedMuscle ? hotMuscles[sharedMuscle].filter(n => n !== this.vName(v)) : [];
         return {
           name: this.vName(v), tag: drop >= 1 ? 'STALLED' : 'WATCH',
           window: pts.length + ' matched sessions at ' + load + ' ' + u,
           body: drop >= 1
-            ? 'Load has not moved while RIR fell ' + drop + ' points. That is a fatigue plateau, not a strength ceiling — the same weight is simply costing more.'
+            ? 'Load has not moved while RIR fell ' + drop + ' points. The same weight is costing more.'
             : 'Load and effort are both flat. Progression has stopped but fatigue is not accumulating, so this is a programming problem rather than a recovery one.',
-          actions: [{ t: 'Drop to ' + Math.round(load * 0.88) + ' ' + u + ' for one session, then rebuild' }, { t: 'Add one back-off set at RIR 3 instead of pushing the top set' }, { t: 'Re-test in two weeks before changing the movement' }],
-          dismiss: () => this.mut(s => { const x = s.recs.find(y => y.id === r.id); if (x) x.status = 'dismissed'; }),
-          accept: () => this.mut(s => {
-            const x = s.recs.find(y => y.id === r.id); if (x) x.status = 'accepted';
-            s.plans = (s.plans || []).filter(p => p.variantId !== r.variantId);
-            s.plans.push({ id: this.uid(), variantId: r.variantId, load: sets.length ? sets[sets.length - 1].weight * 0.88 : 0, backoff: true });
-          })
+          hasCause: !!sharedMuscle,
+          cause: sharedMuscle ? 'Also stalling: ' + andList(others) + '. ' + (others.length === 1 ? 'Both' : 'All of them') + ' load your ' + sharedMuscle + ' — ' + (thisWeek[sharedMuscle] || 0) + ' sets in the last 7 days. Fix the muscle, not the lift.' : '',
+          action: sharedMuscle
+            ? 'Cut a set of ' + sharedMuscle + ' work elsewhere before touching this lift.'
+            : 'Drop to ' + Math.round(load * 0.88) + ' ' + u + ' for one session, then rebuild.',
+          dismiss: () => this.mut(s => { const x = s.recs.find(y => y.id === r.id); if (x) x.status = 'dismissed'; })
         };
       });
-      V.hasPlans = (S.plans || []).length > 0;
-      V.plansList = (S.plans || []).map(p => {
-        const v = this.vById(p.variantId) || {};
-        return {
-          name: this.vName(v), text: 'Top set capped at ' + Math.round(this.dw(p.load)) + ' ' + u + ', back-off at RIR 3 — waiting on your next session with this lift.',
-          undo: () => this.mut(s => { s.plans = s.plans.filter(x => x.id !== p.id); const r = s.recs.find(y => y.kind === 'plateau' && y.variantId === p.variantId); if (r) r.status = 'open'; })
-        };
-      });
+      V.hasDiagnoses = V.plateaus.length > 0;
       V.openGoal = () => this.setState({ sheet: 'goal', gv: null, gTarget: '', gReps: '' });
       V.goalsList = (S.goals || []).map(g => {
         const v = this.vById(g.variantId) || {};
@@ -1716,25 +2034,61 @@ class Component extends DCLogic {
           remove: () => this.mut(s => { s.goals = s.goals.filter(x => x.id !== g.id); })
         };
       });
-      const weeks = [];
-      for (let w = 0; w < 3; w++) {
-        const end = new Date(); end.setHours(0, 0, 0, 0); end.setDate(end.getDate() - end.getDay() - w * 7);
+      // ---- change log: only what moved, week over week ----
+      // Same rolling 7-day window as the fatigue map. Two definitions of "this week" one
+      // scroll apart is worse than either definition on its own.
+      const weekSlice = w => {
+        const end = new Date(); end.setDate(end.getDate() - w * 7);
         const start = new Date(end); start.setDate(end.getDate() - 7);
         const ss = (S.sessions || []).filter(x => { const d = new Date(x.date); return d >= start && d < end; });
-        if (!ss.length) continue;
         const ids = new Set(ss.map(x => x.id));
         const sets = (S.sets || []).filter(x => ids.has(x.sessionId));
         const rds = (S.readiness || []).filter(x => ids.has(x.sessionId));
-        const avg = (arr, f) => arr.length ? Math.round((arr.reduce((a, b) => a + f(b), 0) / arr.length) * 10) / 10 : '—';
-        const rpe = avg(sets, s => s.rpe);
-        weeks.push({
-          range: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + new Date(end.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          meta: ss.length + ' sessions · ' + sets.length + ' sets',
-          recap: 'You trained ' + ss.length + ' times for ' + sets.length + ' sets at an average RPE of ' + rpe + '. ' + (rpe >= 8.5 ? 'That is a hard week — most of your work sat near failure, which is why readiness is sliding.' : 'Effort sat in a sustainable band; volume is doing the work rather than intensity.'),
-          stats: [{ k: 'Avg readiness', v: avg(rds, r => r.score) + '/10' }, { k: 'Avg sleep', v: avg(rds, r => r.sleep) + 'h' }, { k: 'Avg RPE', v: rpe }, { k: 'Volume', v: Math.round(this.dw(sets.reduce((a, s) => a + s.weight * s.reps, 0)) / 1000 * 10) / 10 + 'k' }]
+        const mean = (arr, f) => arr.length ? arr.reduce((a, b) => a + f(b), 0) / arr.length : null;
+        return {
+          start: start, end: end, sessions: ss, sets: sets,
+          vol: sets.reduce((a, s) => a + s.weight * s.reps, 0),
+          rpe: mean(sets, s => s.rpe), ready: mean(rds, r => r.score), sleep: mean(rds, r => r.sleep),
+          muscles: muscleSets(sets)
+        };
+      };
+      const logRows = [];
+      for (let w = 0; w < 3; w++) {
+        const cur = weekSlice(w), prev = weekSlice(w + 1);
+        if (!cur.sessions.length) continue;
+        const ch = [];
+        const delta = (a, b) => a == null || b == null ? null : Math.round((a - b) * 10) / 10;
+
+        // volume, but only when the move is big enough to mean something
+        if (prev.sets.length) {
+          const pctVol = Math.round((cur.vol - prev.vol) / Math.max(1, prev.vol) * 100);
+          if (Math.abs(pctVol) >= 12) ch.push({ subject: 'Volume', t: (pctVol > 0 ? 'up ' : 'down ') + Math.abs(pctVol) + '% on the previous 7 days — ' + Math.round(this.dw(cur.vol) / 1000 * 10) / 10 + 'k ' + u + ' across ' + cur.sets.length + ' sets.', icon: pctVol > 0 ? 'trending_up' : 'trending_down', ac: pctVol > 0 ? accent : '#8A928C' });
+        }
+        const dRpe = delta(cur.rpe, prev.rpe);
+        if (dRpe != null && Math.abs(dRpe) >= 0.4) ch.push({ subject: 'Effort', t: (dRpe > 0 ? 'climbed ' : 'eased ') + Math.abs(dRpe) + ' RPE on average. ' + (dRpe > 0 ? 'You are working closer to failure than the week before.' : 'More room left in the tank.'), icon: dRpe > 0 ? 'bolt' : 'self_improvement', ac: dRpe > 0 ? '#F2B544' : accent });
+        const dReady = delta(cur.ready, prev.ready);
+        if (dReady != null && Math.abs(dReady) >= 0.5) ch.push({ subject: 'Readiness', t: (dReady > 0 ? 'up ' : 'down ') + Math.abs(dReady) + ' — averaging ' + Math.round(cur.ready * 10) / 10 + '/10' + (cur.sleep ? ' on ' + Math.round(cur.sleep * 10) / 10 + 'h sleep' : '') + '.', icon: dReady > 0 ? 'battery_charging_full' : 'battery_alert', ac: dReady > 0 ? accent : '#F2B544' });
+
+        // the muscle-level line is the one nothing else can tell you
+        let biggest = null;
+        Object.keys(cur.muscles).forEach(m => {
+          const d = cur.muscles[m] - (prev.muscles[m] || 0);
+          if (Math.abs(d) >= 4 && (!biggest || Math.abs(d) > Math.abs(biggest.d))) biggest = { m: m, d: d, now: cur.muscles[m] };
+        });
+        if (biggest) ch.push({ subject: this.title(biggest.m), t: (biggest.d > 0 ? 'took ' + biggest.d + ' more sets' : 'took ' + Math.abs(biggest.d) + ' fewer sets') + ' than the 7 days before — ' + biggest.now + ' total.', icon: 'target', ac: '#4C8E96' });
+
+        const dropped = Object.keys(prev.muscles).filter(m => prev.muscles[m] >= 6 && !cur.muscles[m]);
+        if (dropped.length) ch.push({ subject: this.title(dropped[0]), t: 'got nothing in the last 7 days, after ' + prev.muscles[dropped[0]] + ' sets in the 7 before.', icon: 'pause_circle', ac: '#8A928C' });
+
+        logRows.push({
+          range: w === 0 ? 'Last 7 days' : cur.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + cur.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          meta: cur.sessions.length + ' sessions · ' + cur.sets.length + ' sets',
+          changes: ch, quiet: ch.length === 0
         });
       }
-      V.reports = weeks;
+      // A stack of identical "nothing moved" cards reads as broken rather than calm. Keep
+      // the most recent window always, and older ones only when something actually moved.
+      V.changelog = logRows.filter((r, idx) => idx === 0 || !r.quiet);
     }
 
     if (V.sheetGoal) {

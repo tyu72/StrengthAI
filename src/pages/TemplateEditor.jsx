@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, X } from 'lucide-react'
-import { profile as profileApi, sessions, templates as templatesApi, variants as variantsApi } from '@/api/db'
+import {
+  profile as profileApi,
+  sessions,
+  sets as setsApi,
+  templates as templatesApi,
+  variants as variantsApi,
+} from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
 import { AddExerciseSheet } from '@/components/workout/AddExerciseSheet'
 
@@ -18,11 +24,22 @@ export default function TemplateEditor() {
   const [addOpen, setAddOpen] = useState(false)
   const [active, setActive] = useState(null)
   const [starting, setStarting] = useState(false)
+  const [templateList, setTemplateList] = useState([])
+  const [sessionHistory, setSessionHistory] = useState([])
+  const [allSets, setAllSets] = useState([])
 
   useEffect(() => {
     let alive = true
-    Promise.all([templatesApi.list(), variantsApi.list(), sessions.active(), profileApi.get()])
-      .then(([list, v, act, p]) => {
+    Promise.all([
+      templatesApi.list(),
+      variantsApi.list(),
+      sessions.active(),
+      profileApi.get(),
+      // Suggestions only — never block the editor on them.
+      sessions.list().catch(() => []),
+      setsApi.all().catch(() => []),
+    ])
+      .then(([list, v, act, p, pastSessions, everySet]) => {
         if (!alive) return
         const t = list.find((x) => x.id === templateId)
         if (!t) {
@@ -34,6 +51,9 @@ export default function TemplateEditor() {
         setVariantList(v)
         setActive(act)
         setUnit(p?.unit ?? 'lb')
+        setTemplateList(list)
+        setSessionHistory(pastSessions)
+        setAllSets(everySet)
       })
       .catch((err) => alive && setError(err.message))
       .finally(() => alive && setLoading(false))
@@ -99,7 +119,8 @@ export default function TemplateEditor() {
   }
 
   const handleAddExercise = async ({
-    variantId, base, mods, muscle, muscles, bodyPart, sourceText, resolvedBy, loadNote, confidence,
+    variantId, base, mods, muscle, muscles, jointActions, bodyPart, sourceText,
+    resolvedBy, loadNote, confidence,
   }) => {
     let vid = variantId
     if (!vid) {
@@ -108,6 +129,7 @@ export default function TemplateEditor() {
         mods,
         muscle,
         muscles,
+        joint_actions: jointActions,
         body_part: bodyPart,
         source_text: sourceText,
         resolved_by: resolvedBy,
@@ -234,6 +256,13 @@ export default function TemplateEditor() {
         variants={variantList}
         unit={unit}
         onAdd={handleAddExercise}
+        sessions={sessionHistory}
+        allSets={allSets}
+        templates={templateList}
+        currentOrder={template.exercise_order || []}
+        // The template being edited is the plan, not a session started from one — there is
+        // no remainder to suggest from itself, so tier 1 stays out of it.
+        templateId={null}
       />
     </div>
   )

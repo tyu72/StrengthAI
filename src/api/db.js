@@ -57,7 +57,8 @@ export const variants = {
    * the trend line.
    */
   ensure: async ({
-    base, mods = [], muscle, muscles, body_part, source_text, resolved_by, load_note, confidence,
+    base, mods = [], muscle, muscles, joint_actions, body_part, source_text,
+    resolved_by, load_note, confidence,
   }) => {
     const row = {
       user_id: await uid(),
@@ -76,6 +77,10 @@ export const variants = {
       // Omitted rather than sent empty when unknown, for the same reason as above: an
       // unresolved re-log must not erase muscles a previous resolve established.
       ...(muscles?.length ? { muscles } : {}),
+      // Joint actions (migration 007). Omitted when empty for the same reason as muscles: an
+      // unresolved re-log, or a variant added before the backfill ran, must not overwrite
+      // actions that are already there.
+      ...(joint_actions?.length ? { joint_actions } : {}),
     };
     return supabase.from('exercise_variants')
       .upsert(row, { onConflict: 'user_id,base,mods' })

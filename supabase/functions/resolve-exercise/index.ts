@@ -29,6 +29,19 @@ const MONTHLY_CALL_CAP = 400;
 
 const BODY_PARTS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
 
+const JOINT_ACTIONS = [
+  'shoulder flexion', 'shoulder extension', 'shoulder abduction', 'shoulder adduction',
+  'shoulder horizontal adduction', 'shoulder horizontal abduction',
+  'shoulder internal rotation', 'shoulder external rotation',
+  'scapular retraction', 'scapular protraction', 'scapular elevation', 'scapular depression',
+  'elbow flexion', 'elbow extension', 'wrist flexion', 'wrist extension',
+  'hip extension', 'hip flexion', 'hip abduction', 'hip adduction',
+  'knee extension', 'knee flexion',
+  'plantarflexion', 'dorsiflexion',
+  'spinal flexion', 'spinal extension', 'spinal rotation', 'lateral flexion',
+  'anti-extension', 'anti-rotation', 'anti-lateral-flexion',
+];
+
 const MUSCLES = [
   'pectorals', 'upper chest',
   'lats', 'upper back', 'traps', 'lower back',
@@ -46,7 +59,8 @@ const VOCAB_BASES = [
   'back extension', 'good morning',
   'curl', 'reverse curl', 'preacher curl', 'wrist curl', 'tricep extension', 'pushdown',
   'tricep kickback', 'skull crusher', 'jm press',
-  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'deadlift',
+  'squat', 'leg press', 'hack squat', 'leg extension', 'romanian deadlift', 'stiff leg deadlift',
+  'deadlift',
   'rack pull', 'hamstring curl', 'nordic curl', 'hip thrust', 'glute kickback',
   'hip abduction', 'hip adduction', 'lunge', 'split squat', 'step-up', 'calf raise',
   'crunch', 'leg raise', 'ab wheel', 'plank', 'pallof press', 'woodchop',
@@ -95,7 +109,7 @@ Return ONE JSON object, no prose, no markdown fence.
 
 Accepted:
 {"ok":true,"base":"...","mods":[...],"muscles":[{"name":"...","role":"primary|secondary"}],
- "body_part":"...","note":"...","confidence":"high|low"}
+ "joint_actions":[...],"body_part":"...","note":"...","confidence":"high|low"}
 
 Rejected (not an exercise at all):
 {"ok":false,"reason":"one short sentence, second person, telling them what to type instead"}
@@ -109,6 +123,13 @@ If none fits, name it yourself in the same style. A movement missing from that l
 normal, not an error — do not force a bad fit. A JM press is its own movement, not a tricep
 extension. A Zercher squat is a squat with a front-loaded rack position.
 
+A lift that lifters are taught as its own movement gets its own base, even when a listed
+movement is mechanically adjacent. A stiff-leg deadlift is not a Romanian deadlift with a
+modifier — the knee angle, bar path and lumbar demand differ enough that their loads are not
+comparable, so filing one under the other would merge two trend lines that should stay
+separate. Same for a JM press versus a skull crusher. Only use base + modifier when the
+movement really is the listed one performed differently.
+
 mods — everything that changes how the movement loads. At most one per group:
 ${modLines}
 Invent a tag when the description names something the list does not cover.
@@ -121,12 +142,36 @@ Invent a tag when the description names something the list does not cover.
 
   Drop only words carrying no loading information: filler, set counts, "warmup", "felt good".
 
-muscles — every muscle meaningfully worked, using EXACTLY these names:
+muscles — the muscles doing real work, using EXACTLY these names:
 ${MUSCLES.join(', ')}
   role "primary" for the muscles the movement is chosen to train — usually one, sometimes
-  two. role "secondary" for real contributors that are not the target.
-  Be honest and complete: this feeds fatigue detection across movements, so if a row trains
-  lats and biceps, say so. Do not list a muscle that is merely stabilising.
+  two. role "secondary" for other real contributors, ordered biggest first, AT MOST TWO.
+  Judge by contribution, not by anatomy: include a muscle only if a lifter would feel it
+  work and it would accumulate meaningful fatigue. A wide-grip lat pulldown is lats primary
+  with biceps and upper back secondary — the rear delts do too little to be worth counting,
+  and listing them inflates rear-delt volume in the lifter's weekly totals. Never list a
+  muscle that is only stabilising or isometric. When in doubt, leave it out: a padded list
+  corrupts per-muscle volume just as badly as a missing one.
+
+joint_actions — every joint action the working muscles perform, as an ARRAY, using EXACTLY
+these names:
+${JOINT_ACTIONS.join(', ')}
+  Anatomical, never trainer shorthand. Do NOT answer "vertical push" or "horizontal pull";
+  name what the joints actually do. Most lifts have two or three actions, because a press
+  works the shoulder and the elbow.
+    machine shoulder press -> ["shoulder abduction","elbow extension"]
+    lat pulldown          -> ["shoulder adduction","elbow flexion","scapular depression"]
+    bench press           -> ["shoulder horizontal adduction","elbow extension"]
+    barbell row           -> ["shoulder horizontal abduction","elbow flexion","scapular retraction"]
+    squat                 -> ["knee extension","hip extension"]
+    romanian deadlift     -> ["hip extension"]
+    leg curl              -> ["knee flexion"]
+    lateral raise         -> ["shoulder abduction"]
+    cable curl            -> ["elbow flexion"]
+    plank                 -> ["anti-extension"]
+  List an action only where a muscle is doing work against the load. Isometric trunk demand
+  counts (anti-extension, anti-rotation); passive stabilising does not. This is how the coach
+  finds an imbalance at the joint that per-muscle volume totals hide.
 
 body_part — one of: ${BODY_PARTS.join(', ')}. The primary muscle's group.
 
@@ -146,6 +191,95 @@ the description matches one, so it continues an existing trend line rather than 
 ${known}`;
 }
 
+/**
+ * Backfill — an OWNER-OPERATED migration, not a user feature.
+ *
+ * Adding a resolver field leaves every previously-resolved row without it, and partial
+ * coverage is worse than none: per-joint volume would quietly exclude the lifts people have
+ * been training longest, which are exactly where a plateau shows up first. Variants are
+ * per-user rows, so a fix that signs in as one lifter only ever reaches one account.
+ *
+ * Gated on the service-role key rather than a user JWT for that reason: it has to cross
+ * account boundaries, which no user is allowed to do. The key never ships in the app — the
+ * project owner runs this once from their own machine.
+ *
+ * This only translates base + mods into joint actions. The caller owns the writes, so
+ * nothing here can touch a row it was not asked about. One model call per batch, so the
+ * whole database costs a fraction of a cent.
+ */
+async function handleBackfill(
+  body: Record<string, unknown>,
+  authHeader: string,
+  serviceKey: string,
+  json: (b: unknown, s?: number) => Response
+): Promise<Response> {
+  const bearer = authHeader.replace(/^Bearer\s+/i, '');
+  if (!serviceKey || bearer !== serviceKey) {
+    return json({ error: 'Backfill requires the service role key.' }, 403);
+  }
+
+  type Item = { id: string; base?: string; mods?: string[] };
+  const items = (Array.isArray(body.items) ? body.items : []).slice(0, 60) as Item[];
+  if (!items.length) return json({ ok: true, results: [] });
+
+  const list = items
+    .map((it, i) => `${i}: ${it.base ?? ''}${it.mods?.length ? ` (${it.mods.join(', ')})` : ''}`)
+    .join('\n');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2000,
+      system: `For each numbered exercise, list every joint action its working muscles perform.
+
+Use EXACTLY these names:
+${JOINT_ACTIONS.join(', ')}
+
+Anatomical only, never trainer shorthand — no "vertical push" or "hip hinge". Name what the
+joints do. Most lifts have two or three actions, because a press works the shoulder and the
+elbow. A machine shoulder press is ["shoulder abduction","elbow extension"]. A lat pulldown
+is ["shoulder adduction","elbow flexion","scapular depression"]. A leg curl is
+["knee flexion"]. Isometric trunk demand counts; passive stabilising does not.
+
+Reply with JSON only: {"results":[{"i":0,"joint_actions":["..."]}, ...]}
+One entry per input number, in order. No prose.`,
+      messages: [{ role: 'user', content: list }],
+    }),
+  });
+
+  if (!res.ok) {
+    console.error('[resolve-exercise] backfill model call failed', res.status, await res.text());
+    return json({ ok: false, reason: 'Backfill could not reach the model.' }, 502);
+  }
+
+  const payload = await res.json();
+  const raw = payload?.content?.[0]?.text ?? '';
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return json({ ok: false, reason: 'Backfill got an unparseable reply.' }, 502);
+
+  const rows = JSON.parse(match[0])?.results ?? [];
+  const results = rows
+    .map((row: Record<string, unknown>) => {
+      const item = items[Number(row?.i)];
+      if (!item) return null;
+      const actions = [...new Set(
+        (Array.isArray(row.joint_actions) ? row.joint_actions : [])
+          .map((x: unknown) => norm(x))
+          .filter((x: string) => JOINT_ACTIONS.includes(x))
+      )];
+      return actions.length ? { id: item.id, joint_actions: actions } : null;
+    })
+    .filter(Boolean);
+
+  return json({ ok: true, results });
+}
+
 Deno.serve(async (req) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -161,6 +295,15 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const body = await req.json();
+
+    // Backfill is checked BEFORE user auth: it authenticates with the service-role key
+    // rather than a user JWT, so the ordinary "not signed in" gate would reject it.
+    if (body.mode === 'backfill') {
+      return await handleBackfill(body, authHeader, serviceKey, json);
+    }
+
     const anon = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -171,7 +314,8 @@ Deno.serve(async (req) => {
     const userId = userData?.user?.id;
     if (!userId) return json({ error: 'Not signed in' }, 401);
 
-    const { text, registry = [] } = await req.json();
+
+    const { text, registry = [] } = body;
     const phrase = normalizePhrase(text);
     if (!phrase) return json({ ok: false, reason: 'Type what you did.' });
 
@@ -199,6 +343,7 @@ Deno.serve(async (req) => {
         base: cached.base,
         mods: cached.mods ?? [],
         muscles: cached.muscles ?? [],
+        joint_actions: cached.joint_actions ?? [],
         muscle: cached.muscle,
         body_part: cached.body_part,
         note: cached.note ?? '',
@@ -319,7 +464,21 @@ Deno.serve(async (req) => {
       }))
       .filter((m: { name: string }) => MUSCLES.includes(m.name));
 
-    const primary = muscles.find((m: { role: string }) => m.role === 'primary') ?? muscles[0] ?? null;
+    // Cap secondaries server-side as well as in the prompt. An over-long list silently
+    // inflates per-muscle weekly volume, and the prompt is guidance rather than a
+    // guarantee. Primaries are never trimmed.
+    const trimmedMuscles = [
+      ...muscles.filter((m: { role: string }) => m.role === 'primary'),
+      ...muscles.filter((m: { role: string }) => m.role === 'secondary').slice(0, 2),
+    ];
+
+    const jointActions = [...new Set(
+      (Array.isArray(parsed.joint_actions) ? parsed.joint_actions : [])
+        .map((a: unknown) => norm(a))
+        .filter((a: string) => JOINT_ACTIONS.includes(a))
+    )];
+
+    const primary = trimmedMuscles.find((m: { role: string }) => m.role === 'primary') ?? trimmedMuscles[0] ?? null;
     const part = norm(parsed.body_part);
     const confidence = parsed.confidence === 'low' ? 'low' : 'high';
 
@@ -327,7 +486,8 @@ Deno.serve(async (req) => {
       ok: true,
       base,
       mods,
-      muscles,
+      muscles: trimmedMuscles,
+      joint_actions: jointActions,
       muscle: primary?.name ?? null,
       body_part: BODY_PARTS.includes(part) ? part : null,
       note: String(parsed.note ?? '').trim(),
@@ -345,6 +505,7 @@ Deno.serve(async (req) => {
         base: result.base,
         mods: result.mods,
         muscles: result.muscles,
+        joint_actions: result.joint_actions,
         muscle: result.muscle,
         body_part: result.body_part,
         note: result.note,

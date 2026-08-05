@@ -8,6 +8,7 @@ import {
   readiness as readinessApi,
   sessions,
   sets as setsApi,
+  templates as templatesApi,
   variants as variantsApi,
 } from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
@@ -33,6 +34,9 @@ export default function Workout() {
   const [notes, setNotes] = useState('')
   const [variantList, setVariantList] = useState([])
   const [sessionSets, setSessionSets] = useState([])
+  const [sessionHistory, setSessionHistory] = useState([])
+  const [allSets, setAllSets] = useState([])
+  const [templateList, setTemplateList] = useState([])
   const [openPlans, setOpenPlans] = useState([])
   const [busy, setBusy] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -68,8 +72,14 @@ export default function Workout() {
       variantsApi.list(),
       setsApi.forSession(sessionId),
       plansApi.list(),
+      // History for the "Up next" ranking: which lifts follow which, and how long ago each
+      // was last trained. Read-only and only feeds suggestions, so a failure here must not
+      // stop the session loading — hence the catch-to-empty on each.
+      sessions.list().catch(() => []),
+      setsApi.all().catch(() => []),
+      templatesApi.list().catch(() => []),
     ])
-      .then(([p, s, v, st, openPlanRows]) => {
+      .then(([p, s, v, st, openPlanRows, pastSessions, everySet, tpls]) => {
         if (!alive) return
         // this screen is for the live session only; a finished one is read-only on /session
         if (s.status !== 'active') {
@@ -83,6 +93,9 @@ export default function Workout() {
         setVariantList(v)
         setSessionSets(st)
         setOpenPlans(openPlanRows)
+        setSessionHistory(pastSessions)
+        setAllSets(everySet)
+        setTemplateList(tpls)
 
         // a brand-new session (no sets logged yet) gets a readiness check, once
         if (st.length === 0) {
@@ -207,6 +220,7 @@ export default function Workout() {
     mods,
     muscle,
     muscles,
+    jointActions,
     bodyPart,
     sourceText,
     resolvedBy,
@@ -220,6 +234,7 @@ export default function Workout() {
         mods,
         muscle,
         muscles,
+        joint_actions: jointActions,
         body_part: bodyPart,
         source_text: sourceText,
         resolved_by: resolvedBy,
@@ -461,6 +476,11 @@ export default function Workout() {
         variants={variantList}
         unit={unit}
         onAdd={handleAddExercise}
+        sessions={sessionHistory}
+        allSets={allSets}
+        templates={templateList}
+        currentOrder={session.exercise_order || []}
+        templateId={session.template_id || null}
       />
 
       <SetLoggerSheet
