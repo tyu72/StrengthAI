@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import {
   flags as flagsApi,
   profile as profileApi,
@@ -17,6 +19,7 @@ import { Sparkline } from '@/components/progress/Sparkline'
 const STABILITY_LABEL = { declining: 'Declining', volatile: 'Volatile', stable: 'Stable' }
 
 export default function Progress() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [unit, setUnit] = useState('lb')
@@ -75,7 +78,7 @@ export default function Progress() {
   const matchedSeries = useMemo(() => {
     if (!selectedId) return []
     const setsForVariant = allSets.filter((s) => s.variant_id === selectedId)
-    return matchedRirSeries(setsForVariant, datesBySession, excludedSessionIds)
+    return matchedRirSeries(setsForVariant, datesBySession, excludedSessionIds).series
   }, [allSets, selectedId, datesBySession, excludedSessionIds])
 
   const plateau = matchedSeries.length >= 3 ? detectPlateau(matchedSeries) : null
@@ -83,14 +86,18 @@ export default function Progress() {
 
   const stats = useMemo(() => {
     const volKg = sessionVolumeKg(allSets)
-    const stabilityLabel = plateau ? STABILITY_LABEL[plateau.stability] : 'No data'
     return [
       { label: 'Sessions', value: sessionList.length.toLocaleString(), color: '#ECEFEA' },
       { label: 'Sets', value: allSets.length.toLocaleString(), color: '#ECEFEA' },
       { label: 'Total volume', value: `${Math.round(display(volKg, unit)).toLocaleString()} ${unit}`, color: '#ECEFEA' },
-      { label: 'RIR stability', value: stabilityLabel, color: declining ? '#F2B544' : '#A8C9A2' },
     ]
-  }, [allSets, sessionList, unit, plateau, declining])
+  }, [allSets, sessionList, unit])
+
+  // The coach has something to say about the selected exercise. When it does, this tile stops
+  // restating a one-word verdict and becomes the route to the plateau card on Insights, where
+  // the reasoning and the accept/dismiss actions already live. Duplicating the diagnosis here
+  // would mean two places to keep true.
+  const coachFlagged = !!plateau && (plateau.stalled || plateau.watch)
 
   const volumeData = useMemo(() => {
     const bySession = {}
@@ -147,6 +154,28 @@ export default function Progress() {
             </div>
           </div>
         ))}
+
+        {coachFlagged ? (
+          // Insights has no per-exercise deep link today, so this lands on the screen rather
+          // than the card. Worth revisiting if the plateau list ever grows past a screenful.
+          <button
+            onClick={() => navigate('/coach/insights')}
+            className="rounded-2xl border border-border bg-card p-[13px] text-left"
+          >
+            <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">RIR stability</div>
+            <div className="mt-1 flex items-center gap-[3px] text-[13.5px] font-semibold text-primary">
+              Coach flagged this
+              <ChevronRight className="h-[15px] w-[15px] shrink-0" />
+            </div>
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-border bg-card p-[13px]">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">RIR stability</div>
+            <div className="mt-1 font-mono text-[21px] font-medium tracking-[-0.03em] text-primary">
+              {plateau ? STABILITY_LABEL[plateau.stability] : 'No data'}
+            </div>
+          </div>
+        )}
       </div>
 
       {currentReadiness != null && (

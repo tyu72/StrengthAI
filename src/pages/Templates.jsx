@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Dumbbell, Play, Plus, Trash2 } from 'lucide-react'
 import { sessions, templates as templatesApi, variants as variantsApi } from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
@@ -12,6 +13,9 @@ export default function Templates() {
   const [variantList, setVariantList] = useState([])
   const [active, setActive] = useState(null)
   const [starting, setStarting] = useState(null)
+  // Deleting a template is irreversible and was a single unguarded tap. SessionDetail already
+  // confirms before destroying a session; this is the same class of action.
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -44,11 +48,14 @@ export default function Templates() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    const target = pendingDelete
+    if (!target) return
+    setPendingDelete(null)
     const prev = templateList
-    setTemplateList((list) => list.filter((t) => t.id !== id))
+    setTemplateList((list) => list.filter((t) => t.id !== target.id))
     try {
-      await templatesApi.remove(id)
+      await templatesApi.remove(target.id)
     } catch (err) {
       setTemplateList(prev)
       setError(err.message)
@@ -126,7 +133,7 @@ export default function Templates() {
                     <div className="text-[15px] font-semibold tracking-[-0.01em]">{t.name}</div>
                     <div className="mt-[3px] truncate text-[12px] leading-[1.4] text-muted-foreground">{summary}</div>
                   </button>
-                  <button onClick={() => handleDelete(t.id)} className="text-[#5F665F]">
+                  <button onClick={() => setPendingDelete(t)} className="text-[#5F665F]">
                     <Trash2 className="h-[17px] w-[17px]" />
                   </button>
                 </div>
@@ -143,6 +150,32 @@ export default function Templates() {
           })}
         </div>
       )}
+
+      {/* Same pattern and copy shape as SessionDetail's delete guard. */}
+      <AlertDialog.Root open={!!pendingDelete} onOpenChange={(v) => !v && setPendingDelete(null)}>
+        <AlertDialog.Portal>
+          <AlertDialog.Backdrop className="fixed inset-0 z-40 bg-black/60" />
+          <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-[min(90vw,360px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 text-foreground">
+            <AlertDialog.Title className="text-[16px] font-semibold">
+              Delete “{pendingDelete?.name}”?
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-2 text-[13.5px] text-muted-foreground">
+              The template is removed. Workouts you already logged from it are not affected.
+            </AlertDialog.Description>
+            <div className="mt-5 flex gap-2">
+              <AlertDialog.Close className="flex-1 rounded-xl border border-border py-[10px] text-[13px] text-muted-foreground">
+                Cancel
+              </AlertDialog.Close>
+              <button
+                onClick={handleDelete}
+                className="flex-1 rounded-xl bg-destructive/10 py-[10px] text-[13px] font-semibold text-destructive"
+              >
+                Delete
+              </button>
+            </div>
+          </AlertDialog.Popup>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   )
 }

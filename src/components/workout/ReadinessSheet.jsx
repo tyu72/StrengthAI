@@ -9,9 +9,15 @@ const FIELDS = [
 ]
 
 /**
- * Full-screen overlay, not a bottom sheet — matches the prototype's own
- * `position:absolute;inset:0` treatment for this one screen (everything else in
- * workout/ is a slide-up Sheet).
+ * Full-height overlay rather than a bottom sheet — matches the prototype's own
+ * `position:absolute;inset:0` treatment for this one screen (everything else in workout/ is
+ * a slide-up Sheet).
+ *
+ * The width constraint is not optional. In the prototype `inset:0` resolved against the phone
+ * frame; here it resolves against the viewport, so on any window wider than the column this
+ * was the one surface spanning the whole screen while every other sat in 440px. Sheet.jsx
+ * repeats `max-w-[440px] left-1/2 -translate-x-1/2` for the same reason and explains why —
+ * this file simply never applied it.
  */
 export function ReadinessSheet({ open, onSkip, onSubmit }) {
   const [values, setValues] = useState({ sleep_hours: 7, energy: 6, soreness: 3, stress: 3 })
@@ -27,7 +33,14 @@ export function ReadinessSheet({ open, onSkip, onSubmit }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
+    <>
+      {/* Constraining the panel to the column leaves the workout screen exposed either side
+          on a wide window, so this covers it. Matches AppShell's own outer background. */}
+      <div className="fixed inset-0 z-[59] bg-[#0A0B0A]" />
+      <div
+        className="fixed inset-y-0 left-1/2 z-[60] flex w-full max-w-[440px] -translate-x-1/2 flex-col border-x border-accent bg-background"
+        style={{ paddingTop: 'var(--safe-top)' }}
+      >
       <div className="flex items-start justify-between px-5 pt-[18px] pb-2">
         <div>
           <div className="text-[20px] font-bold tracking-[-0.02em]">Readiness check</div>
@@ -76,15 +89,16 @@ export function ReadinessSheet({ open, onSkip, onSubmit }) {
         </div>
       </div>
 
-      <div className="px-5 pb-[22px]">
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full rounded-2xl bg-primary py-[15px] text-center text-[14.5px] font-bold text-primary-foreground disabled:opacity-60"
-        >
-          Start training
-        </button>
+        <div className="px-5 pb-[22px]">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full rounded-2xl bg-primary py-[15px] text-center text-[14.5px] font-bold text-primary-foreground disabled:opacity-60"
+          >
+            Start training
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -15,6 +15,7 @@
  * cannot be edited by the client.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { capFromEnv, checkCap, monthStartKey } from '../_shared/usage.ts';
 
 // Pinned to a version alias, never `-latest`.
 //
@@ -25,7 +26,13 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // jump; override via the RESOLVER_MODEL secret if it ever needs pinning harder.
 const MODEL = Deno.env.get('RESOLVER_MODEL') ?? 'claude-haiku-4-5';
 
-const MONTHLY_CALL_CAP = 400;
+// Env-configurable like the chat coach's cap, so the limit can be changed — or exercised in
+// a test — without redeploying the function. A cap you cannot reach on demand is a cap
+// nobody ever verifies, which is how the broken one survived for months.
+//
+// Parsed through capFromEnv rather than Number(): a typo'd secret would otherwise become NaN
+// and disable the cap entirely, silently.
+const MONTHLY_CALL_CAP = capFromEnv(Deno.env.get('RESOLVER_MONTHLY_CAP'), 400, 'RESOLVER_MONTHLY_CAP');
 
 const BODY_PARTS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
 
@@ -178,7 +185,9 @@ body_part — one of: ${BODY_PARTS.join(', ')}. The primary muscle's group.
 note — one or two sentences on why this variant loads differently from the plain version of
 the movement: moment arm, range of motion, stability demand, joints involved. Concrete and
 mechanical. Empty string if it is simply the standard version. Never give form coaching,
-injury advice, or programming advice.
+injury advice, or programming advice. Plain text only — no markdown, no asterisks for
+emphasis, no backticks. The app renders this string verbatim, so any formatting characters
+show up as literal punctuation.
 
 confidence — "low" if you are inferring from an unfamiliar name rather than recognising the
 movement. Be honest; a low-confidence answer is kept private rather than shared.
@@ -353,17 +362,25 @@ Deno.serve(async (req) => {
     }
 
     // ---- cap ------------------------------------------------------------------------
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-
-    const { count } = await admin
+    // `resolver_usage` is a daily counter — (user_id, day, calls) — so a monthly cap is the
+    // sum of this month's rows, at most 31 of them. Summing rather than counting rows is
+    // load-bearing: a row count would cap a heavy user at 31 calls and never stop a light
+    // one. See _shared/usage.ts for what the previous version got wrong.
+    const { data: usageRows, error: usageErr } = await admin
       .from('resolver_usage')
-      .select('*', { count: 'exact', head: true })
+      .select('calls')
       .eq('user_id', userId)
-      .gte('created_at', monthStart.toISOString());
+      .gte('day', monthStartKey());
 
-    if ((count ?? 0) >= MONTHLY_CALL_CAP) {
+    const cap = checkCap(usageRows, usageErr, MONTHLY_CALL_CAP);
+
+    if (cap.failed) {
+      // Fail closed. A counter that cannot be read is not evidence of zero usage.
+      console.error('[resolve-exercise] usage read failed', usageErr);
+      return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
+    }
+
+    if (cap.capped) {
       return json({
         ok: false,
         capped: true,
@@ -412,7 +429,11 @@ Deno.serve(async (req) => {
       return json({ ok: false, unavailable: true, reason: 'I could not reach the coach just now.' });
     }
 
-    await admin.from('resolver_usage').insert({ user_id: userId, phrase });
+    // Atomic increment on the (user_id, day) counter. The previous insert named a `phrase`
+    // column that does not exist and omitted the not-null `day`, so it failed on every
+    // call — and its error was never checked, so nothing ever surfaced.
+    const { error: bumpErr } = await admin.rpc('bump_resolver_usage', { target_user: userId });
+    if (bumpErr) console.error('[resolve-exercise] usage bump failed', bumpErr);
 
     if (parsed.ok === false) {
       return json({

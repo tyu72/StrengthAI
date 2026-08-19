@@ -91,7 +91,17 @@ export default function Coach() {
       // current, in-progress one, matching the prototype's own w=0..2 loop), upserted
       // so re-opening Coach later in an active week just refreshes its numbers
       const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      const avg = (arr, f) => (arr.length ? Math.round((arr.reduce((a, b) => a + f(b), 0) / arr.length) * 10) / 10 : null)
+      // Averages only over rows that actually carry the value. The old version read
+      // `s.rpe ?? 0` and averaged the zeros in, so a week where nobody rated a set reported
+      // "an average RPE of 0" as though every set had been logged at zero effort — a number
+      // the lifter never entered, written into weekly_reports.avg_rpe and shown beside sleep
+      // and readiness tiles that correctly render "—" for exactly the same missing data.
+      const avg = (arr, f) => {
+        const vals = arr.map(f).filter((v) => v != null && Number.isFinite(Number(v))).map(Number)
+        if (!vals.length) return null
+        return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
       const reportRows = []
       for (let w = 0; w < 3; w++) {
         const anchor = new Date()
@@ -105,18 +115,23 @@ export default function Coach() {
         const weekIds = new Set(weekSessions.map((s) => s.id))
         const weekSets = allSets.filter((s) => weekIds.has(s.session_id))
         const weekReadiness = readinessList.filter((r) => weekIds.has(r.session_id))
-        const avgRpe = avg(weekSets, (s) => s.rpe ?? 0)
+        const avgRpe = avg(weekSets, (s) => s.rpe)
+        const trained = `You trained ${plural(weekSessions.length, 'time')} for ${plural(weekSets.length, 'set')}`
         const recap =
-          avgRpe != null && avgRpe >= 8.5
-            ? `You trained ${weekSessions.length} times for ${weekSets.length} sets at an average RPE of ${avgRpe}. That is a hard week — most of your work sat near failure, which is why readiness is sliding.`
-            : `You trained ${weekSessions.length} times for ${weekSets.length} sets at an average RPE of ${avgRpe ?? '—'}. Effort sat in a sustainable band; volume is doing the work rather than intensity.`
+          avgRpe == null
+            ? `${trained}. No effort ratings logged this week, so there is nothing to say about intensity yet.`
+            : avgRpe >= 8.5
+              ? `${trained} at an average RPE of ${avgRpe}. That is a hard week — most of your work sat near failure, which is why readiness is sliding.`
+              : `${trained} at an average RPE of ${avgRpe}. Effort sat in a sustainable band; volume is doing the work rather than intensity.`
         reportRows.push({
           week_start: ymd(start),
           week_end: ymd(new Date(end.getTime() - 1)),
           sessions_count: weekSessions.length,
           sets_count: weekSets.length,
-          avg_readiness: avg(weekReadiness, (r) => r.score ?? 0),
-          avg_sleep: avg(weekReadiness, (r) => r.sleep_hours ?? 0),
+          // Raw field, not `?? 0` — same reasoning as RPE above. A readiness entry with a
+          // blank sleep figure must not average in as a night of zero hours.
+          avg_readiness: avg(weekReadiness, (r) => r.score),
+          avg_sleep: avg(weekReadiness, (r) => r.sleep_hours),
           avg_rpe: avgRpe,
           volume_kg: sessionVolumeKg(weekSets),
           recap,
@@ -136,19 +151,26 @@ export default function Coach() {
         .filter((v) => usedVariantIds.has(v.id))
         .map((v) => {
           const variantSets = allSets.filter((s) => s.variant_id === v.id)
-          const series = matchedRirSeries(variantSets, datesBySession, excludedIds)
-          return { variantId: v.id, name: canonicalLabel(v.base), series, variantSets, verdict: detectPlateau(series) }
+          const { series, modal } = matchedRirSeries(variantSets, datesBySession, excludedIds)
+          return {
+            variantId: v.id,
+            name: canonicalLabel(v.base),
+            series,
+            modal,
+            variantSets,
+            verdict: detectPlateau(series),
+          }
         })
 
       for (const pv of perVariant) {
         if (!pv.verdict.stalled) continue
 
-        const lastSet = pv.variantSets
-          .filter((s) => !excludedIds.has(s.session_id))
-          .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
-          .at(-1)
-        if (!lastSet) continue
-        const matchedLoadKg = lastSet.weight_kg
+        // The load the plateau was measured at — the modal weight of the matched series, not
+        // the most recent set. Those diverge on any deload, back-off set or rep-scheme change,
+        // and this number is both shown on the card and multiplied by 0.88 for the back-off
+        // target, so taking the wrong one turns a reporting slip into wrong programming.
+        if (!pv.modal) continue
+        const matchedLoadKg = pv.modal.weightKg
 
         const latest = allRecs
           .filter((r) => r.kind === 'plateau' && r.variant_id === pv.variantId)

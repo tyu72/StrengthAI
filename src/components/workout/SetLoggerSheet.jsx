@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarClock, Minus, Plus } from 'lucide-react'
 import { Sheet } from '@/components/Sheet'
 import { sets as setsApi } from '@/api/db'
@@ -27,12 +27,24 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
   const [last, setLast] = useState(null)
   const [best, setBest] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  // A field only shows an error once the lifter has been in it. Screaming red at a form
+  // nobody has touched yet is noise, not help.
+  const [touched, setTouched] = useState({ weight: false, reps: false })
+  const [saving, setSaving] = useState(false)
+  // Synchronous double-tap guard. `saving` state alone is not enough: React batches, so a
+  // second tap in the same tick still sees the old value. The sheet also stays mounted and
+  // clickable through Base UI's ~260ms unmount animation, by which point the parent has
+  // already nulled `logVariantId` — that race wrote a null variant_id and lost the set.
+  const savingRef = useRef(false)
 
   useEffect(() => {
     if (!open || !variantId) return
     setWeight('')
     setReps('')
     setRir('')
+    setTouched({ weight: false, reps: false })
+    setSaving(false)
+    savingRef.current = false
     setLast(null)
     setBest(null)
     setHistoryLoading(true)
@@ -60,18 +72,45 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
   const logPlan = plan ? `Coach plan: ${Math.round(weightPh)} ${unit} at RIR 3 — pre-filled below.` : null
 
   const repsPh = best ? best.reps : 0
-  const repsInc = () => setReps(String(Math.min(100, (parseFloat(reps) || repsPh) + 1)))
-  const repsDec = () => setReps(String(Math.max(1, (parseFloat(reps) || repsPh) - 1)))
+  const touchReps = () => setTouched((t) => ({ ...t, reps: true }))
+  const repsInc = () => {
+    touchReps()
+    setReps(String(Math.min(100, (parseFloat(reps) || repsPh) + 1)))
+  }
+  const repsDec = () => {
+    touchReps()
+    setReps(String(Math.max(1, (parseFloat(reps) || repsPh) - 1)))
+  }
 
   const rirSel = rir === '' ? null : parseFloat(rir)
   const rirRow = RIR_SCALE.find((r) => r.rir === rirSel)
   const rirHint = last ? `Last time you logged RIR ${last.rir}` : 'How many more reps could you have done?'
 
+  // Everything saved below is entered, never inferred. `best` and `plan` seed the PLACEHOLDER
+  // so the lifter can see what they did last time; they never become the saved value. The old
+  // version fell back to them — and to a hardcoded RIR of 2 — whenever a field was left blank,
+  // so tapping straight through logged a fabricated set at your best-ever weight carrying an
+  // effort rating you never gave. That rating is exactly what detectPlateau reads.
+  const weightNum = parseFloat(weight)
+  const repsNum = parseFloat(reps)
+  const weightOk = weight.trim() !== '' && Number.isFinite(weightNum) && weightNum > 0
+  const repsOk = reps.trim() !== '' && Number.isFinite(repsNum) && repsNum > 0
+  const rirOk = rirSel != null
+  const canSave = weightOk && repsOk && rirOk && !historyLoading && !saving
+
+  const missing = [
+    !weightOk && 'a weight',
+    !repsOk && 'reps',
+    !rirOk && 'how hard it was',
+  ].filter(Boolean)
+
   const handleSave = () => {
-    const weightKg = toKg(weight !== '' ? weight : weightPh, unit)
-    const repsVal = parseFloat(reps) || (best ? best.reps : 0)
-    const rirVal = rirSel == null ? (best ? best.rir : 2) : rirSel
-    onSave({ weightKg, reps: repsVal, rir: rirVal, rpe: rirToRpe(rirVal) })
+    // Re-entry guard first, before any state read: a second tap in the same tick would still
+    // see the old `saving`, and by then the parent may have nulled the variant id.
+    if (savingRef.current || !canSave) return
+    savingRef.current = true
+    setSaving(true)
+    onSave({ weightKg: toKg(weight, unit), reps: repsNum, rir: rirSel, rpe: rirToRpe(rirSel) })
     onOpenChange(false)
   }
 
@@ -87,28 +126,40 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </div>
         )}
 
-        <div className="mt-4 rounded-2xl border border-border bg-background px-[14px] py-3">
+        <div
+          className="mt-4 rounded-2xl border bg-background px-[14px] py-3"
+          style={{ borderColor: touched.weight && !weightOk ? '#F2B544' : '#272C29' }}
+        >
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Weight</div>
             <div className="text-[11px] uppercase text-muted-foreground">{unit}</div>
           </div>
           <div className="mt-[6px] flex items-center gap-[10px]">
             <button
-              onClick={() => setWeight(String(Math.max(0, (parseFloat(weight) || weightPh) - stepAmt)))}
+              onClick={() => {
+                setTouched((t) => ({ ...t, weight: true }))
+                setWeight(String(Math.max(0, (parseFloat(weight) || weightPh) - stepAmt)))
+              }}
               className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Minus className="h-4 w-4" />
             </button>
             <input
               value={weight}
-              onChange={(e) => setWeight(e.target.value)}
+              onChange={(e) => {
+                setTouched((t) => ({ ...t, weight: true }))
+                setWeight(e.target.value)
+              }}
               type="number"
               disabled={historyLoading}
               placeholder={historyLoading ? '' : String(weightPh)}
               className="min-w-0 flex-1 bg-transparent text-center font-mono text-[30px] tracking-[-0.04em] text-foreground outline-none disabled:opacity-50"
             />
             <button
-              onClick={() => setWeight(String((parseFloat(weight) || weightPh) + stepAmt))}
+              onClick={() => {
+                setTouched((t) => ({ ...t, weight: true }))
+                setWeight(String((parseFloat(weight) || weightPh) + stepAmt))
+              }}
               className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Plus className="h-4 w-4" />
@@ -116,7 +167,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </div>
         </div>
 
-        <div className="mt-[9px] flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-[14px] py-[10px]">
+        <div
+          className="mt-[9px] flex items-center justify-between gap-3 rounded-2xl border bg-background px-[14px] py-[10px]"
+          style={{ borderColor: touched.reps && !repsOk ? '#F2B544' : '#272C29' }}
+        >
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Reps</div>
           <div className="flex items-center gap-[6px]">
             <button
@@ -127,7 +181,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
             </button>
             <input
               value={reps}
-              onChange={(e) => setReps(e.target.value)}
+              onChange={(e) => {
+                touchReps()
+                setReps(e.target.value)
+              }}
               type="number"
               placeholder={String(repsPh)}
               className="w-[58px] bg-transparent text-center font-mono text-[24px] tracking-[-0.03em] text-foreground outline-none"
@@ -181,6 +238,16 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </div>
         </div>
 
+        {/* Says what is still needed rather than what is wrong. A set is three numbers; until
+            all three are entered there is nothing honest to save. */}
+        {!historyLoading && missing.length > 0 && (
+          <div className="mt-[11px] text-center text-[11.5px] leading-[1.45] text-[#F2B544]">
+            {missing.length === 1
+              ? `Still need ${missing[0]}.`
+              : `Still need ${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}.`}
+          </div>
+        )}
+
         <div className="mt-[14px] flex gap-2">
           <button
             onClick={() => onOpenChange(false)}
@@ -190,8 +257,8 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </button>
           <button
             onClick={handleSave}
-            disabled={historyLoading}
-            className="flex-[2] rounded-2xl bg-primary py-[14px] text-center text-[14px] font-bold text-primary-foreground disabled:opacity-60"
+            disabled={!canSave}
+            className="flex-[2] rounded-2xl bg-primary py-[14px] text-center text-[14px] font-bold text-primary-foreground disabled:opacity-40"
           >
             Log set
           </button>

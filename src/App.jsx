@@ -9,6 +9,7 @@ import Home from '@/pages/Home'
 import Workout from '@/pages/Workout'
 import Progress from '@/pages/Progress'
 import Coach from '@/pages/Coach'
+import CoachChat from '@/pages/CoachChat'
 import SessionDetail from '@/pages/SessionDetail'
 import Settings from '@/pages/Settings'
 import Templates from '@/pages/Templates'
@@ -26,7 +27,11 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/workout/:sessionId" element={<Workout />} />
           <Route path="/progress" element={<Progress />} />
-          <Route path="/coach" element={<Coach />} />
+          {/* The Coach tab is the chat. The detection screen it replaced is still reachable
+              at /coach/insights — plateau cards, goals and weekly reports all live there,
+              and nothing has been deleted. */}
+          <Route path="/coach" element={<CoachChat />} />
+          <Route path="/coach/insights" element={<Coach />} />
           <Route path="/workouts" element={<Templates />} />
         </Route>
         <Route path="/session/:sessionId" element={<SessionDetail />} />

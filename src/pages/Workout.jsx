@@ -137,6 +137,9 @@ export default function Workout() {
         chips: v ? [...(v.mods || []), v.muscle].filter(Boolean) : [],
         sets: varSets,
         planText: plan ? `Coach plan · top set ${Math.round(display(plan.target_load_kg, unit))} ${unit} @ RIR 3` : null,
+        // How many sets the chat coach suggested, if it staged this exercise. A display
+        // count only — it draws empty prompts, never a set row.
+        targetSets: session?.target_sets?.[vid] ?? null,
       }
     })
   }, [session, variantById, sessionSets, planByVariant, unit])
@@ -277,6 +280,15 @@ export default function Workout() {
   }
 
   const handleLogSet = (variantId, { weightKg, reps, rir, rpe }) => {
+    // Belt and braces behind the sheet's own re-entry guard. Without a variant this write
+    // trips a not-null constraint and dumps the raw Postgres text into the banner — and it
+    // would also start a rest timer for a set that was never recorded.
+    if (!variantId) return
+
+    // Clear any stale failure. The banner is only ever set on error and had no reset, so one
+    // failed write left a database error on screen through every later successful set.
+    setError(null)
+
     const variant = variantById.get(variantId)
     const variantName = variant ? canonicalLabel(variant.base) : ''
     const setNumber = sessionSets.filter((s) => s.variant_id === variantId).length + 1
