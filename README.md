@@ -4,6 +4,9 @@ A strength-training log that reads your own data and tells you when a lift has s
 why. No exercise database, no dropdowns. You type what you did in your own words and it
 becomes a trend line.
 
+**[strength-ai.vercel.app](https://strength-ai.vercel.app)** is live. Sign up and start
+logging; there's nothing to install or configure.
+
 React + Vite · Supabase (Postgres, auth, edge functions) · installable as a PWA.
 
 ---
@@ -101,6 +104,18 @@ cannot write a weight, a rep count or an RIR. Those are yours to enter, always.
 
 ---
 
+## Getting it on your phone
+
+Open **[strength-ai.vercel.app](https://strength-ai.vercel.app)** and sign up with an email
+and password. That's the whole setup.
+
+It's a PWA, so add it to your home screen from the browser's share menu (iOS Safari:
+*Share > Add to Home Screen*; Android Chrome: *menu > Add to Home screen*). It then opens
+without browser chrome and keeps you signed in, which is how it's meant to be used standing
+at a rack. Your unit preference, kg or lb, is under Settings.
+
+---
+
 ## Using it
 
 **The loop.** Start a workout from Home. Answer the ten-second readiness check, or skip it.
@@ -124,7 +139,10 @@ real plateau from a calorie deficit, and weekly session targets per body part.
 
 ---
 
-## Running it
+## Running it yourself
+
+Only needed if you're forking the project or working on the code. Everything below is for
+standing up your own instance; users of the live app don't touch any of it.
 
 ```bash
 npm install
@@ -162,7 +180,14 @@ npm run lint
 npm run build
 ```
 
+Deploying the frontend is a static build, so any host works. The live instance is on Vercel
+with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set as build-time environment
+variables. Both are safe to expose: the anon key is designed to ship in the bundle, and RLS
+is what actually protects the data.
+
 ### Cost
+
+This only applies to whoever runs the instance, since the API key lives server-side.
 
 Resolving is close to free: repeats never leave the device, anything anyone has described
 before comes from the shared cache, and junk never reaches the model. Only a genuinely novel
