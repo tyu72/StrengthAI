@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI scratch state (linked project ref, pooler url, server versions).
+# Local machine state, not project source.
+supabase/.temp/
