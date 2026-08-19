@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut, Minus, Plus } from 'lucide-react'
 import { auth, muscleGoals, profile as profileApi } from '@/api/db'
 import { PART_LABELS, PART_ORDER } from '@/pages/Home'
+import { useHoldRepeat } from '@/hooks/useHoldRepeat'
 
 const UNIT_OPTS = [
   { key: 'kg', label: 'kg', hint: 'Kilograms' },
@@ -17,6 +18,7 @@ const DIET_OPTS = [
 
 export default function Settings() {
   const navigate = useNavigate()
+  const { start, stop } = useHoldRepeat()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [profileRow, setProfileRow] = useState(null)
@@ -186,14 +188,20 @@ export default function Settings() {
                 <div className="text-[14px] font-medium">{PART_LABELS[part]}</div>
                 <div className="flex items-center gap-[10px]">
                   <button
-                    onClick={() => bumpGoal(part, -1)}
+                    onPointerDown={() => start(() => bumpGoal(part, -1))}
+                    onPointerUp={stop}
+                    onPointerLeave={stop}
+                    onPointerCancel={stop}
                     className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] border border-border text-muted-foreground"
                   >
                     <Minus className="h-[17px] w-[17px]" />
                   </button>
                   <div className="w-4 text-center font-mono text-[15px]">{val}</div>
                   <button
-                    onClick={() => bumpGoal(part, 1)}
+                    onPointerDown={() => start(() => bumpGoal(part, 1))}
+                    onPointerUp={stop}
+                    onPointerLeave={stop}
+                    onPointerCancel={stop}
                     className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] border border-border text-muted-foreground"
                   >
                     <Plus className="h-[17px] w-[17px]" />

@@ -423,8 +423,7 @@ export default function Workout() {
             index={i}
             total={blocks.length}
             unit={unit}
-            onUp={() => reorder(i, -1)}
-            onDown={() => reorder(i, 1)}
+            onReorder={(direction) => reorder(i, direction)}
             onRemove={() => removeExercise(block.variantId)}
             onDeleteSet={deleteSet}
             onLogSet={() => setLogVariantId(block.variantId)}

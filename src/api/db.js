@@ -6,11 +6,27 @@
  * version made in reverse: its SDK calls were sprinkled through every page.
  */
 import { createClient } from '@supabase/supabase-js';
+import { clearCache, invalidate, qk } from './queryCache';
 
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+/**
+ * Run a write, then refresh the cached reads it invalidates.
+ *
+ * Invalidation lives here rather than at the call sites on purpose. This is the only
+ * file that touches the database, so it is the only place where "what this write
+ * changes" is knowable without being remembered — a new screen calling sets.log() gets
+ * correct cache behaviour without knowing the cache exists. Refresh happens at the
+ * moment of the write, so by the time you reach Progress the data is already fresh.
+ */
+const touches = (keys, run) => async (...args) => {
+  const result = await run(...args);
+  invalidate(...keys);
+  return result;
+};
 
 /** Current user id, or throws — every write needs it, RLS enforces it anyway. */
 async function uid() {
@@ -30,7 +46,14 @@ const ok = ({ data, error }) => {
 export const auth = {
   signUp: (email, password) => supabase.auth.signUp({ email, password }).then(ok),
   signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }).then(ok),
-  signOut: () => supabase.auth.signOut(),
+  // Cache is per-user data held in module scope, so it has to go on the way out —
+  // otherwise the next account to sign in on this device renders the previous one's
+  // sessions and sets for a moment before its own reads land.
+  signOut: async () => {
+    const result = await supabase.auth.signOut();
+    clearCache();
+    return result;
+  },
   resetPassword: (email) =>
     supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset` }).then(ok),
   updatePassword: (password) => supabase.auth.updateUser({ password }).then(ok),
@@ -40,8 +63,8 @@ export const auth = {
 
 export const profile = {
   get: async () => supabase.from('profiles').select('*').eq('id', await uid()).single().then(ok),
-  update: async (patch) =>
-    supabase.from('profiles').update(patch).eq('id', await uid()).select().single().then(ok),
+  update: touches([qk.profile], async (patch) =>
+    supabase.from('profiles').update(patch).eq('id', await uid()).select().single().then(ok)),
 };
 
 /* -------------------------------------------------------------- variants */
@@ -82,12 +105,14 @@ export const variants = {
       // actions that are already there.
       ...(joint_actions?.length ? { joint_actions } : {}),
     };
-    return supabase.from('exercise_variants')
+    const saved = await supabase.from('exercise_variants')
       .upsert(row, { onConflict: 'user_id,base,mods' })
       .select().single().then(ok);
+    invalidate(qk.variants);
+    return saved;
   },
 
-  bumpUse: async (id) => supabase.rpc('increment_variant_use', { variant: id }),
+  bumpUse: touches([qk.variants], async (id) => supabase.rpc('increment_variant_use', { variant: id })),
 };
 
 /* -------------------------------------------------------------- sessions */
@@ -104,21 +129,22 @@ export const sessions = {
 
   get: (id) => supabase.from('workout_sessions').select('*').eq('id', id).single().then(ok),
 
-  start: async ({ name = null, template_id = null, exercise_order = [] } = {}) =>
+  start: touches([qk.sessions, qk.activeSession], async ({ name = null, template_id = null, exercise_order = [] } = {}) =>
     supabase.from('workout_sessions')
       .insert({ user_id: await uid(), name, template_id, exercise_order, status: 'active' })
-      .select().single().then(ok),
+      .select().single().then(ok)),
 
-  update: (id, patch) =>
-    supabase.from('workout_sessions').update(patch).eq('id', id).select().single().then(ok),
+  update: touches([qk.sessions, qk.activeSession], (id, patch) =>
+    supabase.from('workout_sessions').update(patch).eq('id', id).select().single().then(ok)),
 
-  finish: (id) =>
+  finish: touches([qk.sessions, qk.activeSession, qk.sets], (id) =>
     supabase.from('workout_sessions')
       .update({ status: 'completed', ended_at: new Date().toISOString() })
-      .eq('id', id).select().single().then(ok),
+      .eq('id', id).select().single().then(ok)),
 
   // cascade deletes handle sets, readiness and flags
-  remove: (id) => supabase.from('workout_sessions').delete().eq('id', id).then(ok),
+  remove: touches([qk.sessions, qk.activeSession, qk.sets, qk.readiness, qk.excludedFlags], (id) =>
+    supabase.from('workout_sessions').delete().eq('id', id).then(ok)),
 };
 
 /* ------------------------------------------------------------------ sets */
@@ -138,10 +164,10 @@ export const sets = {
       .eq('variant_id', variant_id).order('logged_at', { ascending: true })
       .limit(limit).then(ok),
 
-  log: async (row) =>
-    supabase.from('workout_sets').insert({ ...row, user_id: await uid() }).select().single().then(ok),
+  log: touches([qk.sets], async (row) =>
+    supabase.from('workout_sets').insert({ ...row, user_id: await uid() }).select().single().then(ok)),
 
-  remove: (id) => supabase.from('workout_sets').delete().eq('id', id).then(ok),
+  remove: touches([qk.sets], (id) => supabase.from('workout_sets').delete().eq('id', id).then(ok)),
 };
 
 /* ------------------------------------------------------------- readiness */
@@ -154,8 +180,8 @@ export const readiness = {
   forSession: (session_id) =>
     supabase.from('readiness_entries').select('*').eq('session_id', session_id).maybeSingle().then(ok),
 
-  create: async (row) =>
-    supabase.from('readiness_entries').insert({ ...row, user_id: await uid() }).select().single().then(ok),
+  create: touches([qk.readiness], async (row) =>
+    supabase.from('readiness_entries').insert({ ...row, user_id: await uid() }).select().single().then(ok)),
 };
 
 /* ----------------------------------------------------------------- flags */
@@ -165,11 +191,11 @@ export const flags = {
     supabase.from('pattern_flags').select('*').eq('user_id', await uid())
       .eq('status', status).order('created_at', { ascending: false }).then(ok),
 
-  create: async (row) =>
-    supabase.from('pattern_flags').insert({ ...row, user_id: await uid() }).select().single().then(ok),
+  create: touches([qk.excludedFlags], async (row) =>
+    supabase.from('pattern_flags').insert({ ...row, user_id: await uid() }).select().single().then(ok)),
 
-  update: (id, patch) =>
-    supabase.from('pattern_flags').update(patch).eq('id', id).select().single().then(ok),
+  update: touches([qk.excludedFlags], (id, patch) =>
+    supabase.from('pattern_flags').update(patch).eq('id', id).select().single().then(ok)),
 };
 
 /* ------------------------------------------------------------- templates */
@@ -178,11 +204,11 @@ export const templates = {
   list: async () =>
     supabase.from('workout_templates').select('*').eq('user_id', await uid())
       .order('created_at', { ascending: false }).then(ok),
-  create: async (row = {}) =>
-    supabase.from('workout_templates').insert({ ...row, user_id: await uid() }).select().single().then(ok),
-  update: (id, patch) =>
-    supabase.from('workout_templates').update(patch).eq('id', id).select().single().then(ok),
-  remove: (id) => supabase.from('workout_templates').delete().eq('id', id).then(ok),
+  create: touches([qk.templates], async (row = {}) =>
+    supabase.from('workout_templates').insert({ ...row, user_id: await uid() }).select().single().then(ok)),
+  update: touches([qk.templates], (id, patch) =>
+    supabase.from('workout_templates').update(patch).eq('id', id).select().single().then(ok)),
+  remove: touches([qk.templates], (id) => supabase.from('workout_templates').delete().eq('id', id).then(ok)),
 };
 
 /* ----------------------------------------------------------------- goals */
@@ -200,10 +226,10 @@ export const goals = {
 
 export const muscleGoals = {
   list: async () => supabase.from('muscle_goals').select('*').eq('user_id', await uid()).then(ok),
-  set: async (body_part, weekly_target) =>
+  set: touches([qk.muscleGoals], async (body_part, weekly_target) =>
     supabase.from('muscle_goals')
       .upsert({ user_id: await uid(), body_part, weekly_target }, { onConflict: 'user_id,body_part' })
-      .select().single().then(ok),
+      .select().single().then(ok)),
 };
 
 /* ------------------------------------------------------------- coach out */

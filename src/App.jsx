@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { AppLayout } from '@/components/AppLayout'
+import { AppLayout, PlainLayout } from '@/components/AppLayout'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import ForgotPassword from '@/pages/ForgotPassword'
@@ -15,13 +15,18 @@ import Settings from '@/pages/Settings'
 import Templates from '@/pages/Templates'
 import TemplateEditor from '@/pages/TemplateEditor'
 
+// The screen fade lives in the layout routes, not in a wrapper around <Routes>. Wrapping
+// everything put the bottom nav inside the animated element, and the animation's retained
+// transform re-anchored the nav's `position: fixed` to that box instead of the viewport.
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot" element={<ForgotPassword />} />
-      <Route path="/reset" element={<ResetPassword />} />
+      <Route element={<PlainLayout />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot" element={<ForgotPassword />} />
+        <Route path="/reset" element={<ResetPassword />} />
+      </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
@@ -34,9 +39,11 @@ function App() {
           <Route path="/coach/insights" element={<Coach />} />
           <Route path="/workouts" element={<Templates />} />
         </Route>
-        <Route path="/session/:sessionId" element={<SessionDetail />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/template/:templateId" element={<TemplateEditor />} />
+        <Route element={<PlainLayout />}>
+          <Route path="/session/:sessionId" element={<SessionDetail />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/template/:templateId" element={<TemplateEditor />} />
+        </Route>
       </Route>
     </Routes>
   )

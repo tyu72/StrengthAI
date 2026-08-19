@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import {
@@ -15,46 +15,42 @@ import { detectPlateau, matchedRirSeries, sessionVolumeKg } from '@/lib/coach'
 import { VolumeChart } from '@/components/progress/VolumeChart'
 import { RirChart } from '@/components/progress/RirChart'
 import { Sparkline } from '@/components/progress/Sparkline'
+import { useQuery } from '@/hooks/useQuery'
+import { qk } from '@/api/queryCache'
 
 const STABILITY_LABEL = { declining: 'Declining', volatile: 'Volatile', stable: 'Stable' }
 
+// Stable identity for the not-yet-loaded case, so `?? EMPTY` doesn't hand the memos
+// below a brand-new array on every render.
+const EMPTY = Object.freeze([])
+
 export default function Progress() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [unit, setUnit] = useState('lb')
-  const [sessionList, setSessionList] = useState([])
-  const [allSets, setAllSets] = useState([])
-  const [variantList, setVariantList] = useState([])
-  const [readinessList, setReadinessList] = useState([])
-  const [excludedSessionIds, setExcludedSessionIds] = useState(new Set())
-  const [selectedVariantId, setSelectedVariantId] = useState(null)
+  const profileQ = useQuery(qk.profile, () => profileApi.get())
+  const sessionsQ = useQuery(qk.sessions, () => sessions.list())
+  const setsQ = useQuery(qk.sets, () => setsApi.all())
+  const variantsQ = useQuery(qk.variants, () => variantsApi.list())
+  const readinessQ = useQuery(qk.readiness, () => readinessApi.list())
+  const excludedQ = useQuery(qk.excludedFlags, () => flagsApi.byStatus('excluded'))
 
-  useEffect(() => {
-    let alive = true
-    Promise.all([
-      profileApi.get(),
-      sessions.list(),
-      setsApi.all(),
-      variantsApi.list(),
-      readinessApi.list(),
-      flagsApi.byStatus('excluded'),
-    ])
-      .then(([p, sessionRows, setRows, variantRows, readinessRows, excludedFlags]) => {
-        if (!alive) return
-        setUnit(p?.unit ?? 'lb')
-        setSessionList(sessionRows)
-        setAllSets(setRows)
-        setVariantList(variantRows)
-        setReadinessList(readinessRows)
-        setExcludedSessionIds(new Set(excludedFlags.map((f) => f.session_id)))
-      })
-      .catch((err) => alive && setError(err.message))
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
-  }, [])
+  const unit = profileQ.data?.unit ?? 'lb'
+  const sessionList = sessionsQ.data ?? EMPTY
+  const allSets = setsQ.data ?? EMPTY
+  const variantList = variantsQ.data ?? EMPTY
+  const readinessList = readinessQ.data ?? EMPTY
+  const excludedSessionIds = useMemo(
+    () => new Set((excludedQ.data ?? EMPTY).map((f) => f.session_id)),
+    [excludedQ.data]
+  )
+
+  const loading =
+    profileQ.loading || sessionsQ.loading || setsQ.loading || variantsQ.loading ||
+    readinessQ.loading || excludedQ.loading
+  const error =
+    profileQ.error || sessionsQ.error || setsQ.error || variantsQ.error ||
+    readinessQ.error || excludedQ.error
+
+  const [selectedVariantId, setSelectedVariantId] = useState(null)
 
   const datesBySession = useMemo(() => {
     const map = {}

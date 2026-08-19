@@ -4,6 +4,7 @@ import { Sheet } from '@/components/Sheet'
 import { sets as setsApi } from '@/api/db'
 import { display, rirToRpe, step, toKg } from '@/lib/units'
 import { e1rm } from '@/lib/coach'
+import { useHoldRepeat } from '@/hooks/useHoldRepeat'
 
 // RIR is what the lifter enters and what the coach reads; RPE is derived (10 - RIR).
 // Asking for both let them contradict each other, so RPE is display-only now.
@@ -21,6 +22,7 @@ const RIR_SCALE = [
 ]
 
 export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, unit, plan, onSave }) {
+  const { start, stop } = useHoldRepeat()
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [rir, setRir] = useState('')
@@ -73,13 +75,27 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
 
   const repsPh = best ? best.reps : 0
   const touchReps = () => setTouched((t) => ({ ...t, reps: true }))
+
+  // Every stepper below computes from the setter's own previous value rather than from
+  // `weight`/`reps` closed over at render. Under a held button the repeat interval calls
+  // the same function object ~11x/sec; reading the render-time value would apply the
+  // identical step each time and the number would advance once and then stick.
+  const touchWeight = () => setTouched((t) => ({ ...t, weight: true }))
+  const weightUp = () => {
+    touchWeight()
+    setWeight((w) => String((parseFloat(w) || weightPh) + stepAmt))
+  }
+  const weightDown = () => {
+    touchWeight()
+    setWeight((w) => String(Math.max(0, (parseFloat(w) || weightPh) - stepAmt)))
+  }
   const repsInc = () => {
     touchReps()
-    setReps(String(Math.min(100, (parseFloat(reps) || repsPh) + 1)))
+    setReps((r) => String(Math.min(100, (parseFloat(r) || repsPh) + 1)))
   }
   const repsDec = () => {
     touchReps()
-    setReps(String(Math.max(1, (parseFloat(reps) || repsPh) - 1)))
+    setReps((r) => String(Math.max(1, (parseFloat(r) || repsPh) - 1)))
   }
 
   const rirSel = rir === '' ? null : parseFloat(rir)
@@ -136,10 +152,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           </div>
           <div className="mt-[6px] flex items-center gap-[10px]">
             <button
-              onClick={() => {
-                setTouched((t) => ({ ...t, weight: true }))
-                setWeight(String(Math.max(0, (parseFloat(weight) || weightPh) - stepAmt)))
-              }}
+              onPointerDown={() => start(weightDown)}
+              onPointerUp={stop}
+              onPointerLeave={stop}
+              onPointerCancel={stop}
               className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Minus className="h-4 w-4" />
@@ -156,10 +172,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
               className="min-w-0 flex-1 bg-transparent text-center font-mono text-[30px] tracking-[-0.04em] text-foreground outline-none disabled:opacity-50"
             />
             <button
-              onClick={() => {
-                setTouched((t) => ({ ...t, weight: true }))
-                setWeight(String((parseFloat(weight) || weightPh) + stepAmt))
-              }}
+              onPointerDown={() => start(weightUp)}
+              onPointerUp={stop}
+              onPointerLeave={stop}
+              onPointerCancel={stop}
               className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Plus className="h-4 w-4" />
@@ -174,7 +190,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Reps</div>
           <div className="flex items-center gap-[6px]">
             <button
-              onClick={repsDec}
+              onPointerDown={() => start(repsDec)}
+              onPointerUp={stop}
+              onPointerLeave={stop}
+              onPointerCancel={stop}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Minus className="h-[18px] w-[18px]" />
@@ -190,7 +209,10 @@ export function SetLoggerSheet({ open, onOpenChange, variantId, variantName, uni
               className="w-[58px] bg-transparent text-center font-mono text-[24px] tracking-[-0.03em] text-foreground outline-none"
             />
             <button
-              onClick={repsInc}
+              onPointerDown={() => start(repsInc)}
+              onPointerUp={stop}
+              onPointerLeave={stop}
+              onPointerCancel={stop}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-border text-muted-foreground"
             >
               <Plus className="h-[18px] w-[18px]" />

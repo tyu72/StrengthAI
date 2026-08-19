@@ -2,94 +2,134 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Repo state — read this first
+## Repo state
 
-This repo is currently a **build package**, not yet a running app. There is no
-`package.json`, no Vite scaffold, and no `node_modules` — only the plan, the database
-schema, the pure-logic modules, and the prototype UI reference. `BUILD-PLAN.md` is the
-ordered task list (nine phases) for turning this into an actual React + Capacitor app;
-`README.md` explains what each piece is for and the rules that must survive the rebuild.
+This is a **working, deployed app**, live at
+[strength-ai.vercel.app](https://strength-ai.vercel.app). React + Vite · Supabase
+(Postgres, auth, edge functions) · installable as a PWA. Phases 0–7 of `BUILD-PLAN.md`
+are done, so treat that file as history rather than a task list — `README.md` is the
+accurate description of what exists.
 
-Before assuming `npm run dev` or `npm test` works, check whether Phase 0/1 setup
-(`npm install`, `.env.local`, wiring `src/` into a real Vite project) has happened yet —
-if `package.json` still doesn't exist, that setup is the actual task at hand.
-
-## Commands (once the Vite project exists)
+## Commands
 
 ```bash
-npm install @supabase/supabase-js
-npm install -D vitest
-npm test          # runs vitest — 30 tests across resolver.test.js and coach.test.js
-npm run dev
+npm install
+npm run dev     # http://localhost:5173
+npm test        # vitest — 87 tests, no database or network needed
+npm run lint    # oxlint; currently warnings-only, no errors
+npm run build
 ```
 
-To run a single test file: `npx vitest run src/lib/resolver.test.js`.
-The resolver and coach tests have no setup requirements (no DB, no mocks) — they're
-plain function tests and should pass before any UI is written.
+Single test file: `npx vitest run src/lib/resolver.test.js`.
 
-Database: paste `supabase/schema.sql` into the Supabase SQL editor once per project.
-It's idempotent (`create table if not exists`, `drop policy if exists`) so re-running it
-is safe.
+Tests live in `src/lib/{resolver,coach,suggestNext}.test.js` and
+`supabase/functions/_shared/usage.test.ts`. All are plain function tests — no DB, no
+mocks, no setup. They should pass before any UI work is considered done.
+
+`.env.local` needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+
+**Database.** In the Supabase SQL editor run `supabase/schema.sql`, then the migrations
+in numerical order: `002`, `003`, `004`, `005`, `007`, `008`. There is no `006` — it was
+superseded by `007`. Everything is idempotent, so re-running is safe.
+
+**Edge functions.** These hold the API key server-side and enforce usage caps where the
+client can't edit them:
+
+```bash
+supabase functions deploy resolve-exercise
+supabase functions deploy coach-chat
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Optional secrets with sane defaults: `RESOLVER_MODEL`, `COACH_CHAT_MODEL`,
+`RESOLVER_MONTHLY_CAP` (400), `COACH_CHAT_DAILY_CAP` (40). Pin models to a version
+alias, never `-latest` — a retired dated model once made the whole AI layer read as bad
+wifi for days.
 
 ## Architecture
 
 **Pure logic is separated from I/O on purpose**, so the hard-to-get-right parts can be
 tested without a database or a UI:
 
-- `src/lib/resolver.js` — freeform exercise text → canonical variant. No network, no
-  model calls, fully deterministic.
-- `src/lib/coach.js` — plateau detection, program-level pattern detection, goal
-  projection, session-note risk classification. Pure functions over already-loaded sets.
-- `src/lib/units.js` — kg/lb conversion, RIR/RPE conversion, readiness score.
-- `src/api/db.js` — the *only* file that touches Supabase. Screens call these functions
-  and never import `@supabase/supabase-js` directly; swapping backends later means
-  rewriting this one file instead of every page.
+```
+src/lib/resolver.js       vocabulary, normalization, junk filter, local match
+src/lib/coach.js          matched-RIR series, plateau + program detection, goal projection,
+                          per-muscle volume, the facts payload for the chat coach
+src/lib/units.js          kg/lb, RIR/RPE, readiness score
+src/lib/suggestNext.js    "up next" ranking: template order, then co-occurrence, then recency
 
-`prototype/StrengthAI-standalone.html` (and `.dc.html`) is the high-fidelity UI
-reference — colors, spacing, type and copy are final there. When building screens,
-recreate it with the shadcn/Tailwind components in the target project rather than
-copying its inline styles.
+src/api/db.js               the ONLY file that touches Supabase
+src/api/resolveExercise.js  the three resolution gates
+src/api/coachChat.js        builds the facts payload, calls the chat function
 
-### The resolver (`src/lib/resolver.js`)
+supabase/schema.sql       tables, indexes, RLS policies
+supabase/functions/       resolve-exercise, coach-chat, _shared/usage.ts (cap logic)
+prototype/                the original high-fidelity UI reference
+```
+
+Screens in `src/pages`: Home, Workout, Progress, CoachChat, Coach (insights), Templates,
+TemplateEditor, SessionDetail, Settings, and the four auth pages.
+
+### The resolver (`src/lib/resolver.js` + `src/api/resolveExercise.js`)
 
 There is no global exercise database. A lifter's registry is built entirely from what
-they've logged (`exercise_variants` in the DB, keyed by `user_id, base, mods`).
-`resolve(text, variants)` returns one of four statuses, and the UI behavior for each is
-a hard rule, not a suggestion:
+they've logged (`exercise_variants`, keyed by `user_id, base, mods`). **The model decides
+what an exercise is** — the local module only normalizes, autocompletes, and filters junk.
 
-- `match` — same variant; confirm and continue the existing trend line.
-- `close` — same movement, different-enough modifiers. Show both options and let the
-  lifter decide. **Never merge silently** — a false match corrupts the trend in a way
-  the lifter can't see, and that's the core promise of the product.
-- `new` — nothing like it; create a fresh variant.
-- `unknown` — text has modifiers but no recognized movement; ask for the lift name.
+`resolveExercise(text, variants)` runs three gates, cheapest first, and returns a
+`status` that the UI must respect:
 
-`BASES` and `MODS` are the movement/modifier vocabularies. Each `MODS` entry carries an
-`n` (loading-explanation) string — shown to the lifter as `resolve(...).note` — that
-explains *why* a modifier changes the load (e.g. cuff vs. rope moment arm). This is
-what makes a fork in the trend line feel earned rather than arbitrary; when adding a
-modifier, write that explanation, don't leave it blank unless there's truly nothing to
-say. `MATCH_THRESHOLD` / `CLOSE_THRESHOLD` tune how eager matching is — see
-`scoreMods` for the overlap formula (intersection over the larger set).
+- `known` — `findLocal` matched a phrase this lifter already typed. Instant, offline,
+  free. Most logging stops here.
+- `resolved` — the shared alias cache or the model identified it.
+- `rejected` — not an exercise. **The only status that blocks logging.**
+- `unresolved` — couldn't reach the model, or the cap is hit. **Never blocks**: the set
+  saves as typed and can be re-resolved later. You're standing at a rack; the workout has
+  to be loggable.
+
+The rule that protects the data: **every distinguishing term the lifter types must end up
+in the base or the modifiers.** If "zercher barbell squat" comes back tagged only
+`barbell`, those squats merge into ordinary ones and corrupt months of trend invisibly.
+This is stated in the prompt and enforced again server-side; any unaccounted-for content
+word is appended as a tag, so a forgotten term degrades to an ugly label rather than bad
+data.
+
+`VOCAB_BASES` / `VOCAB_MODS` / `MUSCLES` / `JOINT_ACTIONS` are vocabularies given to the
+model, not a matching dictionary. `isPlausibleExercise` is deliberately permissive — it
+rejects only what *cannot* be an exercise (keyboard mashing, repeated characters). Note
+there is intentionally no "must contain a vowel" rule: SLDL, RDL, OHP and BSS are all
+vowel-free.
+
+**Don't add an alias list.** Hand-written aliases outranked the model on any phrase they
+touched and were confidently wrong in ways nobody could see. If the model gets something
+wrong, fix the prompt or the vocabulary.
 
 ### The coach (`src/lib/coach.js`)
 
 Deliberately conservative: every function either has data-backed grounds to claim
-something, or explicitly declines to. Patterns to preserve when extending this:
+something, or explicitly declines to. Patterns to preserve when extending:
 
 - `matchedRirSeries` only compares sessions at the *same* weight × reps (the lifter's
   modal combination for that variant) — RIR at different loads isn't comparable.
-- `detectPlateau` requires ≥3 matched sessions and a full RIR point of drop; half a
-  point is noise in self-reported RIR.
+- `detectPlateau` requires ≥3 matched sessions and a full RIR point of drop; half a point
+  is noise in self-reported RIR.
 - `detectProgramPattern` looks for ≥2 lifts stalling together plus a falling readiness
   trend, because diagnosing each exercise in isolation turns "recovery" into several
   unrelated false plateaus (a bug from the prior Base44 version).
 - `projectGoal` refuses to project when the observed rate isn't positive, and always
   returns a decay-adjusted range alongside the naive linear one — straight-line
   extrapolation is knowingly false near a lifter's ceiling.
-- No injury/pain classification exists or is planned — cut deliberately to avoid
-  medical claims. Session notes are plain text; the only related feature is a manual
-  "exclude this session from trends" action where the lifter gives their own reason.
+- `muscleVolume` counts primary as a full set and secondary as half. This is what makes
+  cross-movement fatigue visible: a bench stalls because the triceps absorbed eighteen
+  sets across bench, dips and pushdowns. No per-exercise view can see that.
+- `buildCoachFacts` is the payload for the chat coach. **The chat never queries the
+  database** — it only sees numbers these tested functions computed, so everything it
+  quotes can be checked against the lifter's own Progress screen. The chat can do exactly
+  two things: save a template, and stage exercises into a session. It cannot write a
+  weight, a rep count, or an RIR.
+- No injury/pain classification exists or is planned — cut deliberately to avoid medical
+  claims. Session notes are plain text; the only related feature is a manual "exclude
+  this session from trends" action where the lifter gives their own reason.
 
 ### Data layer (`src/api/db.js`)
 
@@ -98,23 +138,40 @@ something, or explicitly declines to. Patterns to preserve when extending this:
   layer and surface something to the user; don't swallow errors here.
 - `variants.ensure` upserts on `(user_id, base, mods)` with `mods` pre-sorted, so the
   unique index is what actually prevents two racing clients from forking a trend line.
-- `sets.all()` pulls full history and computes trends client-side — correct at personal
-  scale. Don't build a `variant_stats` rollup table until this is actually slow (see the
-  scale note at the bottom of the file).
+- `sets.all()` pulls full history and computes trends client-side — correct and fast at
+  personal scale. Don't build a `variant_stats` rollup until it actually hurts.
 
-### Database (`supabase/schema.sql`)
+### Database (`supabase/schema.sql` + migrations)
 
 - All weights are stored in kilograms; unit is a per-profile display preference
   (`profile.unit`). Every conversion goes through `src/lib/units.js` — never convert
-  inline, mixed units in storage is a months-long bug to track down.
-- **RLS is the actual security boundary**, not a nicety: the anon key ships inside the
-  app bundle, so the `"own rows"` policies (auth.uid() = user_id) are what stop one
-  user reading another's data. Any new table needs RLS enabled and a matching policy,
-  following the existing `do $$ ... foreach t in array [...] $$` pattern.
+  inline. Mixed units in storage is a months-long bug to track down.
+- **RLS is the actual security boundary**, not a nicety: the anon key ships inside the app
+  bundle, so the `auth.uid() = user_id` policies are what stop one user reading another's
+  data. Any new table needs RLS enabled and a matching policy, following the existing
+  `do $$ ... foreach t in array [...] $$` pattern.
 - `pattern_flags`, `coach_recommendations`, `coach_plans` are the coach's output tables;
   an accepted recommendation becomes a `coach_plans` row consumed by the next session.
+- Both usage caps fail *closed*: if the counter can't be read, the call is refused rather
+  than billed.
+
+## Rules that must survive changes
+
+- **Store kilograms, display the preference.** All conversion through `units.js`.
+- **RLS is the security boundary.** New table ⇒ RLS + policy.
+- **Never swallow errors** in `db.js`.
+- **Don't add an alias list to the resolver.**
+- **Weight, reps and RIR are entered, never inferred.** No defaulting to the last set, the
+  best set, or a hardcoded value. Fabricated effort ratings feed the plateau engine, which
+  is the one thing the product cannot get wrong.
+- **Never merge two variants silently.** When two descriptions might be the same lift, the
+  lifter decides.
 
 ## Design reference (from the prototype)
+
+`prototype/StrengthAI-standalone.html` is the high-fidelity UI reference — colors,
+spacing, type and copy are final there. Recreate it with the Tailwind components in this
+project rather than copying its inline styles.
 
 - Type: Instrument Sans for interface text, JetBrains Mono for anything compared
   numerically (weights, reps, RIR, dates). Numbers are tabular.

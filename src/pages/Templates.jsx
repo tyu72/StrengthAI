@@ -1,37 +1,34 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Dumbbell, Play, Plus, Trash2 } from 'lucide-react'
 import { sessions, templates as templatesApi, variants as variantsApi } from '@/api/db'
 import { canonicalLabel } from '@/lib/resolver'
+import { useQuery } from '@/hooks/useQuery'
+import { qk } from '@/api/queryCache'
+
+// Stable identity for the not-yet-loaded case, so `?? EMPTY` doesn't hand the memos
+// below a brand-new array on every render.
+const EMPTY = Object.freeze([])
 
 export default function Templates() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [templateList, setTemplateList] = useState([])
-  const [variantList, setVariantList] = useState([])
-  const [active, setActive] = useState(null)
+  const templatesQ = useQuery(qk.templates, () => templatesApi.list())
+  const variantsQ = useQuery(qk.variants, () => variantsApi.list())
+  const activeQ = useQuery(qk.activeSession, () => sessions.active())
+
+  const templateList = templatesQ.data ?? EMPTY
+  const variantList = variantsQ.data ?? EMPTY
+  const active = activeQ.data ?? null
+  const loading = templatesQ.loading || variantsQ.loading || activeQ.loading
+
+  const [actionError, setActionError] = useState(null)
+  const error = actionError || templatesQ.error || variantsQ.error || activeQ.error
+  const setError = setActionError
   const [starting, setStarting] = useState(null)
   // Deleting a template is irreversible and was a single unguarded tap. SessionDetail already
   // confirms before destroying a session; this is the same class of action.
   const [pendingDelete, setPendingDelete] = useState(null)
-
-  useEffect(() => {
-    let alive = true
-    Promise.all([templatesApi.list(), variantsApi.list(), sessions.active()])
-      .then(([t, v, act]) => {
-        if (!alive) return
-        setTemplateList(t)
-        setVariantList(v)
-        setActive(act)
-      })
-      .catch((err) => alive && setError(err.message))
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
-  }, [])
 
   const variantById = useMemo(() => {
     const map = new Map()
@@ -52,12 +49,12 @@ export default function Templates() {
     const target = pendingDelete
     if (!target) return
     setPendingDelete(null)
-    const prev = templateList
-    setTemplateList((list) => list.filter((t) => t.id !== target.id))
     try {
+      // No optimistic removal needed: templates.remove invalidates the templates key,
+      // which pushes the new list straight into this mounted screen. On failure the
+      // list is untouched, so there is also nothing to roll back.
       await templatesApi.remove(target.id)
     } catch (err) {
-      setTemplateList(prev)
       setError(err.message)
     }
   }

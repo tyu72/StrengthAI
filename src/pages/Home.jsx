@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@/hooks/useQuery'
+import { qk } from '@/api/queryCache'
 import { ChevronLeft, ChevronRight, Play, Settings } from 'lucide-react'
 import {
   profile as profileApi,
@@ -26,45 +28,43 @@ const ymd = (d) => {
   return `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`
 }
 
+// Stable identity for the not-yet-loaded case, so `?? EMPTY` doesn't hand the memos
+// below a brand-new array on every render.
+const EMPTY = Object.freeze([])
+
 export default function Home() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [unit, setUnit] = useState('lb')
-  const [active, setActive] = useState(null)
-  const [sessionList, setSessionList] = useState([])
-  const [allSets, setAllSets] = useState([])
-  const [variantList, setVariantList] = useState([])
-  const [goals, setGoals] = useState([])
+  // Cached reads: a revisit renders from cache on the first frame and revalidates
+  // behind it, so switching back to this tab no longer flashes "Loading…".
+  const profileQ = useQuery(qk.profile, () => profileApi.get())
+  const activeQ = useQuery(qk.activeSession, () => sessions.active())
+  const sessionsQ = useQuery(qk.sessions, () => sessions.list())
+  const setsQ = useQuery(qk.sets, () => setsApi.all())
+  const variantsQ = useQuery(qk.variants, () => variantsApi.list())
+  const goalsQ = useQuery(qk.muscleGoals, () => muscleGoals.list())
+
+  const unit = profileQ.data?.unit ?? 'lb'
+  const active = activeQ.data ?? null
+  const sessionList = sessionsQ.data ?? EMPTY
+  const allSets = setsQ.data ?? EMPTY
+  const variantList = variantsQ.data ?? EMPTY
+  const goals = goalsQ.data ?? EMPTY
+
+  const loading =
+    profileQ.loading || activeQ.loading || sessionsQ.loading || setsQ.loading ||
+    variantsQ.loading || goalsQ.loading
+  const loadError =
+    profileQ.error || activeQ.error || sessionsQ.error || setsQ.error ||
+    variantsQ.error || goalsQ.error
+
+  // Separate from the read errors above: this one is for failed writes on this screen.
+  const [actionError, setActionError] = useState(null)
+  const error = actionError || loadError
+  const setError = setActionError
+
   const [starting, setStarting] = useState(false)
   const [cursor, setCursor] = useState(null)
   const [openDay, setOpenDay] = useState(null)
-
-  useEffect(() => {
-    let alive = true
-    Promise.all([
-      profileApi.get(),
-      sessions.active(),
-      sessions.list(),
-      setsApi.all(),
-      variantsApi.list(),
-      muscleGoals.list(),
-    ])
-      .then(([p, act, sessionRows, setRows, variantRows, goalRows]) => {
-        if (!alive) return
-        setUnit(p?.unit ?? 'lb')
-        setActive(act)
-        setSessionList(sessionRows)
-        setAllSets(setRows)
-        setVariantList(variantRows)
-        setGoals(goalRows)
-      })
-      .catch((err) => alive && setError(err.message))
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
-  }, [])
 
   const variantById = useMemo(() => {
     const map = new Map()

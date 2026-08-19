@@ -134,4 +134,57 @@
   html {
     @apply font-sans;
     }
+  /* Press feedback, app-wide. Every button dips under the finger so a tap is
+     acknowledged instantly — before any state change or network round-trip lands.
+     One rule rather than a per-component class, so nothing can be missed. */
+  button:active {
+    transform: scale(0.955);
+    opacity: 0.82;
+    }
+}
+
+/* Screen transition on route change. Applied to the keyed wrapper in AppLayout, which
+   remounts per pathname so the animation re-runs on every navigation.
+
+   Opacity ONLY — deliberately, and it must stay that way. The prototype's version also
+   slid the screen up 9px, but any transform here (even the translateY(0) that an
+   `animation-fill-mode: both` leaves behind permanently) makes this element the
+   containing block for every position:fixed descendant. That silently re-anchors the
+   bottom nav, the rest timer and the chat composer to this box instead of the viewport,
+   so the nav stops being pinned and renders inline after the page content. */
+@keyframes screen-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* No fill-mode, deliberately. `both` holds the from-state — opacity 0 — for as long as
+   the animation has not run to completion, and a CSS animation does not advance while the
+   document is hidden. A screen entered in a background tab therefore stayed at opacity 0
+   permanently: totally blank, with no error and no loading state to explain it. Without a
+   fill the element simply renders at its natural opacity when the animation isn't running,
+   so the worst failure is a missing fade rather than an invisible screen. There is no
+   delay on this animation, so there is nothing for a backwards fill to cover anyway. */
+.screen-fade {
+  animation: screen-fade 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Two pulses over 1.6s — sized to sit just inside the 1700ms the rest-done cue is
+   on screen, so it fades out mid-beat rather than cutting off a half-finished pulse. */
+@keyframes rest-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1; }
+}
+
+.rest-pulse {
+  animation: rest-pulse 0.8s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-fade,
+  .rest-pulse {
+    animation: none;
+  }
+  button:active {
+    transform: none;
+  }
 }
